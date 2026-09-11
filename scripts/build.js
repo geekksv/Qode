@@ -125,6 +125,35 @@ Sitemap: ${SITE}/sitemap.xml
   "utf8"
 );
 
+// ---- og:image URLs in the HTML ---------------------------------------------
+
+// og:image has to be absolute — crawlers do not reliably resolve a relative
+// one — but the deploy domain isn't known until this runs. So the committed
+// HTML carries a __SITE__ placeholder and it is substituted here.
+//
+// Deliberately skipped when falling back to localhost: otherwise a local
+// build would rewrite the committed HTML with a localhost URL, and that would
+// eventually get committed. Nothing scrapes localhost, so leaving the
+// placeholder in place there is harmless.
+const isRealDeploy = !SITE.startsWith("http://localhost");
+
+if (isRealDeploy) {
+  let patched = 0;
+  for (const page of ["index.html", "wizard.html", "bulk.html"]) {
+    const file = path.join(WEB, page);
+    if (!fs.existsSync(file)) continue;
+    const before = fs.readFileSync(file, "utf8");
+    const after = before.split("__SITE__").join(SITE);
+    if (after !== before) {
+      fs.writeFileSync(file, after, "utf8");
+      patched++;
+    }
+  }
+  console.log("build: og:image URLs written into " + patched + " page(s)");
+} else {
+  console.log("build: local build — leaving __SITE__ placeholders in the HTML");
+}
+
 // ---- Report ----------------------------------------------------------------
 
 console.log("build: site URL   " + SITE);
