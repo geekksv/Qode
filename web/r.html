@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Redirecting… — Qode</title>
+<meta name="robots" content="noindex, nofollow" />
+<meta name="referrer" content="no-referrer" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("qode-theme");
+      var m = (t === "light" || t === "dark" || t === "system") ? t : "dark";
+      if (m !== "system") document.documentElement.setAttribute("data-theme", m);
+    } catch (e) {}
+  })();
+</script>
+
+<meta name="theme-color" content="#08090a" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/css/styles.css" />
+<!-- Deliberately no web font and no WASM here: a scan has to resolve in
+     milliseconds, so this page loads nothing it doesn't strictly need. -->
+</head>
+<body>
+
+<main class="redirect-wrap">
+
+  <!-- Plain redirect (a Link or Dynamic Link code) -->
+  <div class="redirect-card" id="state-redirecting">
+    <div class="spinner" aria-hidden="true"></div>
+    <h1>Taking you there…</h1>
+    <p id="target-line">
+      <span class="line-skeleton" id="target-skeleton" aria-hidden="true"></span>
+    </p>
+    <code class="redirect-target" id="target" hidden></code>
+    <!-- The fallback that matters: if the automatic redirect is blocked by a
+         browser setting or an in-app webview, this is the visitor's way
+         through. Revealed once the destination is known, and always after a
+         short delay if navigation hasn't happened. -->
+    <p id="manual-prompt" hidden>
+      <a class="btn btn-primary btn-block" id="manual-link" rel="noopener noreferrer">Continue to this link</a>
+    </p>
+    <p style="font-size:12px;">
+      This page reads the destination from the link itself — Qode's server never receives it.
+    </p>
+  </div>
+
+  <!-- Social: a list of links carried inside the code -->
+  <div class="redirect-card link-card" id="state-links" hidden>
+    <img class="link-card-mark" src="/favicon.svg" alt="" width="30" height="30" />
+    <h1 id="links-title">Links</h1>
+    <ul class="link-list" id="link-list"></ul>
+    <p class="link-card-note">
+      These links travel inside the QR code itself. Nothing is stored on a server, and nothing expires.
+    </p>
+  </div>
+
+  <!-- Image gallery: the addresses are carried in the code, the files are
+       hosted. Only the list travels with the QR. -->
+  <div class="redirect-card link-card gallery-card" id="state-gallery" hidden>
+    <img class="link-card-mark" src="/favicon.svg" alt="" width="30" height="30" />
+    <h1 id="gallery-title">Images</h1>
+    <div class="gallery-grid" id="gallery-grid"></div>
+    <p class="link-card-note">Tap an image to open it full size.</p>
+  </div>
+
+  <!-- Error -->
+  <div class="redirect-card" id="state-error" hidden>
+    <h1 id="error-title">Something's off with this code</h1>
+    <p id="error-detail">
+      If you created this code with the Dynamic Link Wizard, check that the destination is still published.
+    </p>
+    <p>
+      <a class="btn btn-primary btn-block" href="/">Go to Qode Studio</a>
+    </p>
+  </div>
+</main>
+
+<script src="/js/redirect.js"></script>
+</body>
+</html>

@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Qode Studio — free QR code generator, rendered on your device</title>
+<meta name="description" content="A fast, free QR code generator with fifteen content types, live styling, true vector (SVG) export and dynamic links that need no database. Every code is encoded by a Go/WebAssembly engine running entirely in your browser — nothing you type reaches a server." />
+<link rel="canonical" href="/" />
+
+<!-- Applied before first paint so a dark-mode visitor never sees a white
+     flash. Mirrors the logic in js/theme.js; absence of the key means
+     "follow the OS", which the CSS handles via prefers-color-scheme. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("qode-theme");
+      var m = (t === "light" || t === "dark" || t === "system") ? t : "dark";
+      if (m !== "system") document.documentElement.setAttribute("data-theme", m);
+      document.documentElement.setAttribute("data-theme-mode", m);
+    } catch (e) {}
+  })();
+</script>
+
+<meta name="theme-color" content="#08090a" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/favicon.svg" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Qode" />
+<meta property="og:title" content="Qode Studio — free QR code generator" />
+<meta property="og:description" content="Fifteen content types, styled and scannable, with real vector export and dynamic links that need no database. 100% encoded on your device." />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Qode Studio — free QR code generator" />
+<meta name="twitter:description" content="Fifteen content types, styled and scannable, with real vector export and dynamic links that need no database. 100% encoded on your device." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/styles.css" />
+
+<!-- No <link rel=preload> for the engine, deliberately.
+     An as="fetch" preload only gets reused when its CORS mode matches the
+     fetch exactly, and in practice it kept missing — measured 2 requests
+     and 6.3MB on every load instead of 1 and 3.2MB. It buys ~100ms of head
+     start; getting it wrong doubles the transfer for every visitor. app.js
+     starts the fetch as soon as it runs, which is good enough. -->
+</head>
+<body>
+
+<a class="skip-link" href="#type-grid">Skip to the generator</a>
+
+<!-- Icon sprite: defined once, referenced by <use> throughout the page. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-link" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 12.5a3.5 3.5 0 0 0 5.3.4l2.6-2.6a3.5 3.5 0 0 0-5-5l-1.5 1.5" />
+      <path d="M12.5 9.5a3.5 3.5 0 0 0-5.3-.4l-2.6 2.6a3.5 3.5 0 0 0 5 5l1.5-1.5" />
+    </g>
+    <g id="i-text" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 5h14M4 9.5h14M4 14h9M4 18h6" />
+    </g>
+    <g id="i-mail" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4.5" width="17" height="13" rx="2.5" />
+      <path d="m3.5 6.5 7.2 5a2 2 0 0 0 2.6 0l7.2-5" />
+    </g>
+    <g id="i-phone" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.5 3h-2A2 2 0 0 0 2.6 5.3C3.4 12 8 16.6 14.7 17.4a2 2 0 0 0 2.3-1.9v-2a1.5 1.5 0 0 0-1.2-1.5l-2-.4a1.5 1.5 0 0 0-1.5.7l-.6 1a12 12 0 0 1-4-4l1-.6a1.5 1.5 0 0 0 .7-1.6l-.4-2A1.5 1.5 0 0 0 6.5 3Z" />
+    </g>
+    <g id="i-sms" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18.5 12a6.5 6.5 0 0 1-6.5 6.5H4.2L6 15.4A6.5 6.5 0 1 1 18.5 12Z" />
+      <path d="M8 10h.01M11 10h.01M14 10h.01" />
+    </g>
+    <g id="i-whatsapp" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 19l1.3-4A7.7 7.7 0 1 1 7.4 18L3 19Z" />
+      <path d="M8 8.2c.2 1.4.8 2.6 1.8 3.6s2.2 1.6 3.6 1.8l.8-1.2 1.6.8-.4 1.4c-1.8.3-3.7-.5-5.2-2s-2.3-3.4-2-5.2l1.4-.4.8 1.6L8 8.2Z" />
+    </g>
+    <g id="i-wifi" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2.5 8.2a13 13 0 0 1 16 0M5.4 11.6a8.5 8.5 0 0 1 10.2 0M8.3 14.9a4 4 0 0 1 4.4 0" />
+      <path d="M11 18h.01" />
+    </g>
+    <g id="i-contact" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="3.5" width="17" height="15" rx="2.5" />
+      <circle cx="8.5" cy="9.5" r="2.2" />
+      <path d="M4.8 15.5a3.9 3.9 0 0 1 7.4 0M14 8.5h3.5M14 12h3.5" />
+    </g>
+    <g id="i-event" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4" width="17" height="15" rx="2.5" />
+      <path d="M2.5 8.5h17M7 2.5v3M15 2.5v3M7 12h3v3H7z" />
+    </g>
+    <g id="i-location" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 19.5s6.5-5.6 6.5-10a6.5 6.5 0 1 0-13 0c0 4.4 6.5 10 6.5 10Z" />
+      <circle cx="11" cy="9.3" r="2.4" />
+    </g>
+    <g id="i-upi" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.5 4h8M6.5 7.5h8M12.5 4c2.3 0 3.4 1.2 3.4 2.9 0 2-1.5 3.3-4 3.3H6.5l7 7.8" />
+    </g>
+    <g id="i-crypto" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8.3" />
+      <path d="M8.6 7h3.6a2 2 0 0 1 0 4H8.6m0 0h4a2 2 0 0 1 0 4h-4m0-8v8M10.2 5.2v1.8M12.6 5.2v1.8M10.2 15v1.8M12.6 15v1.8" />
+    </g>
+    <g id="i-video" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.2" y="4.5" width="17.6" height="13" rx="3.5" />
+      <path d="m9.3 8.6 4.4 2.4-4.4 2.4V8.6Z" />
+    </g>
+    <g id="i-app" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5.5" y="2.5" width="11" height="17" rx="2.5" />
+      <path d="M9.5 5.5h3M11 16.5h.01" />
+    </g>
+    <g id="i-social" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="16" cy="5" r="2.6" /><circle cx="6" cy="11" r="2.6" /><circle cx="16" cy="17" r="2.6" />
+      <path d="m8.3 9.7 5.4-3.2M8.3 12.3l5.4 3.2" />
+    </g>
+    <g id="i-sun" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="11" cy="11" r="3.8" />
+      <path d="M11 2v2.2M11 17.8V20M20 11h-2.2M4.2 11H2M17.4 4.6l-1.6 1.6M6.2 15.8l-1.6 1.6M17.4 17.4l-1.6-1.6M6.2 6.2 4.6 4.6" />
+    </g>
+    <path id="i-moon" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M18 12.4A7.6 7.6 0 0 1 9.6 4a7.6 7.6 0 1 0 8.4 8.4Z" />
+    <g id="i-monitor" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4" width="17" height="11" rx="2" />
+      <path d="M8 18.5h6M11 15.5v3" />
+    </g>
+    <g id="i-download" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3v10M6.8 9.2 11 13.4l4.2-4.2M3.5 15v2.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15" />
+    </g>
+    <g id="i-image" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="3.5" width="17" height="15" rx="2.5" />
+      <circle cx="7.8" cy="8.3" r="1.6" />
+      <path d="m3 15.5 4.4-4a1.8 1.8 0 0 1 2.4 0l4.4 4M13.5 13l1.4-1.3a1.8 1.8 0 0 1 2.4 0L19.5 13" />
+    </g>
+    <g id="i-alert" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3.5 20 18.5H2L11 3.5Z" />
+      <path d="M11 8.5v4M11 15.5h.01" />
+    </g>
+    <g id="i-plus" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+      <path d="M11 5v12M5 11h12" />
+    </g>
+    <g id="i-trash" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 6h14M8.5 6V4.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V6M6 6l.8 11a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L16 6" />
+    </g>
+    <g id="i-chevron" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m5 8 6 6 6-6" />
+    </g>
+    <g id="i-check" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m4 11.5 4.6 4.5L18 6" />
+    </g>
+    <g id="i-cpu" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5.5" y="5.5" width="11" height="11" rx="2" />
+      <rect x="8.8" y="8.8" width="4.4" height="4.4" rx="1" />
+      <path d="M8.5 2.5v3M13.5 2.5v3M8.5 16.5v3M13.5 16.5v3M2.5 8.5h3M2.5 13.5h3M16.5 8.5h3M16.5 13.5h3" />
+    </g>
+    <g id="i-shield" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 2.5 3.5 5.5v5.2c0 4.4 3.1 7.8 7.5 8.8 4.4-1 7.5-4.4 7.5-8.8V5.5L11 2.5Z" />
+      <path d="m8 11 2.2 2.2L14.3 9" />
+    </g>
+    <g id="i-vector" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5.5 6.5c6 0 5 9 11 9" />
+      <rect x="2.5" y="3.5" width="6" height="6" rx="1" />
+      <rect x="13.5" y="12.5" width="6" height="6" rx="1" />
+    </g>
+  </defs>
+</svg>
+
+<header class="topnav">
+  <a class="brand" href="/">
+    <img class="brand-mark" src="/favicon.svg" alt="" width="22" height="22" />
+    <span class="brand-name">Qode</span>
+  </a>
+  <nav class="navlinks" aria-label="Primary">
+    <a href="/" aria-current="page">Studio</a>
+    <a href="/wizard">Dynamic Link</a>
+    <a href="/bulk">Bulk</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme">
+      <svg data-icon="light" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-sun" /></svg>
+      <svg data-icon="dark" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-moon" /></svg>
+      <svg data-icon="system" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-monitor" /></svg>
+    </button>
+  </div>
+</header>
+
+<main class="app">
+
+  <!-- ================= Controls ================= -->
+  <div class="app-col">
+    <div class="app-scroll">
+
+      <div class="pane-group">
+        <h2 class="pane-head"><span class="n">01</span> Type</h2>
+        <div class="type-grid" id="type-grid" role="tablist" aria-label="QR code content type">
+          <button class="type-chip" type="button" role="tab" data-type="link" id="tab-link" aria-controls="content-form" aria-selected="true" tabindex="0"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-link" /></svg><span>Link</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="text" id="tab-text" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-text" /></svg><span>Text</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="email" id="tab-email" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-mail" /></svg><span>E-mail</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="phone" id="tab-phone" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-phone" /></svg><span>Call</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="sms" id="tab-sms" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-sms" /></svg><span>SMS</span></button>
+
+          <button class="type-chip" type="button" role="tab" data-type="whatsapp" id="tab-whatsapp" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-whatsapp" /></svg><span>WhatsApp</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="wifi" id="tab-wifi" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-wifi" /></svg><span>Wi-Fi</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="vcard" id="tab-vcard" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-contact" /></svg><span>V-card</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="event" id="tab-event" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-event" /></svg><span>Event</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="location" id="tab-location" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-location" /></svg><span>Location</span></button>
+
+          <button class="type-chip" type="button" role="tab" data-type="app" id="tab-app" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-app" /></svg><span>App</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="social" id="tab-social" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-social" /></svg><span>Social</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="image" id="tab-image" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-image" /></svg><span>Image</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="video" id="tab-video" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-video" /></svg><span>Video</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="upi" id="tab-upi" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-upi" /></svg><span>UPI Pay</span></button>
+          <button class="type-chip" type="button" role="tab" data-type="crypto" id="tab-crypto" aria-controls="content-form" aria-selected="false" tabindex="-1"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-crypto" /></svg><span>Crypto</span></button>
+        </div>
+      </div>
+
+      <div class="pane-group">
+        <h2 class="pane-head"><span class="n">02</span> Content</h2>
+        <div id="content-form" role="tabpanel" aria-labelledby="tab-link">
+          <!-- populated by studio.js per content type -->
+        </div>
+      </div>
+
+      <div class="pane-group">
+        <h2 class="pane-head"><span class="n">03</span> Design</h2>
+
+        <div class="design-tabs" id="design-tabs" role="tablist" aria-label="Design controls">
+          <button type="button" role="tab" data-panel="shape" id="dt-shape" aria-controls="dp-shape" aria-selected="true" tabindex="0">Shape</button>
+          <button type="button" role="tab" data-panel="color" id="dt-color" aria-controls="dp-color" aria-selected="false" tabindex="-1">Color</button>
+          <button type="button" role="tab" data-panel="logo" id="dt-logo" aria-controls="dp-logo" aria-selected="false" tabindex="-1">Logo</button>
+        </div>
+
+        <!-- Shape -->
+        <div class="design-panel" id="dp-shape" role="tabpanel" aria-labelledby="dt-shape">
+          <div class="field-row">
+            <div class="field">
+              <span class="field-label" id="lbl-module">Module shape</span>
+              <div class="seg" id="module-seg" role="radiogroup" aria-labelledby="lbl-module" data-value="square">
+                <button type="button" role="radio" data-val="square" aria-checked="true" tabindex="0">Square</button>
+                <button type="button" role="radio" data-val="rounded" aria-checked="false" tabindex="-1">Round</button>
+                <button type="button" role="radio" data-val="dot" aria-checked="false" tabindex="-1">Dot</button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="field-label" id="lbl-eye">Eye shape</span>
+              <div class="seg" id="eye-seg" role="radiogroup" aria-labelledby="lbl-eye" data-value="rounded">
+                <button type="button" role="radio" data-val="square" aria-checked="false" tabindex="-1">Square</button>
+                <button type="button" role="radio" data-val="rounded" aria-checked="true" tabindex="0">Round</button>
+                <button type="button" role="radio" data-val="circle" aria-checked="false" tabindex="-1">Circle</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label" id="lbl-ecc">Error correction</span>
+            <div class="seg" id="ecc-seg" role="radiogroup" aria-labelledby="lbl-ecc" data-value="M">
+              <button type="button" role="radio" data-val="L" aria-checked="false" tabindex="-1">L <span class="seg-sub">7%</span></button>
+              <button type="button" role="radio" data-val="M" aria-checked="true" tabindex="0">M <span class="seg-sub">15%</span></button>
+              <button type="button" role="radio" data-val="Q" aria-checked="false" tabindex="-1">Q <span class="seg-sub">25%</span></button>
+              <button type="button" role="radio" data-val="H" aria-checked="false" tabindex="-1">H <span class="seg-sub">30%</span></button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="quiet-range">Quiet zone <span class="range-val" id="quiet-val">4</span></label>
+            <div class="range-row">
+              <input type="range" id="quiet-range" min="4" max="8" step="1" value="4" aria-describedby="quiet-hint" />
+            </div>
+            <p class="field-hint" id="quiet-hint">Blank margin in modules. 4 is the ISO minimum.</p>
+          </div>
+        </div>
+
+        <!-- Color -->
+        <div class="design-panel" id="dp-color" role="tabpanel" aria-labelledby="dt-color" hidden>
+          <div class="field">
+            <span class="field-label" id="lbl-presets">Presets</span>
+            <div class="preset-row" id="preset-row" role="group" aria-labelledby="lbl-presets"></div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="fg-color">Foreground</label>
+              <div class="color-row">
+                <span class="color-swatch"><input type="color" id="fg-color" value="#0a0a0a" /></span>
+                <span class="color-hex mono" id="fg-color-label">#0a0a0a</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="bg-color">Background</label>
+              <div class="color-row">
+                <span class="color-swatch"><input type="color" id="bg-color" value="#ffffff" /></span>
+                <span class="color-hex mono" id="bg-color-label">#ffffff</span>
+              </div>
+            </div>
+          </div>
+          <div class="field switch-row">
+            <label for="gradient-toggle" style="margin:0;">Gradient fill</label>
+            <span class="switch">
+              <input type="checkbox" id="gradient-toggle" />
+              <span class="track" aria-hidden="true"></span>
+            </span>
+          </div>
+          <div class="field" id="fg2-field" hidden>
+            <label for="fg2-color">Gradient end</label>
+            <div class="color-row">
+              <span class="color-swatch"><input type="color" id="fg2-color" value="#3b5bff" /></span>
+              <span class="color-hex mono" id="fg2-color-label">#3b5bff</span>
+            </div>
+          </div>
+          <div class="msg bad" id="contrast-warning" role="status">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+            <span>Foreground and background are too close in brightness — most phone cameras will struggle to read this.</span>
+          </div>
+        </div>
+
+        <!-- Logo -->
+        <div class="design-panel" id="dp-logo" role="tabpanel" aria-labelledby="dt-logo" hidden>
+          <div class="field">
+            <span class="field-label" id="lbl-logo-samples">Samples</span>
+            <div class="logo-samples" id="logo-samples" role="group" aria-labelledby="lbl-logo-samples"></div>
+            <p class="field-hint">Full-colour marks, drawn as vector so they stay sharp at any size. Pick one, or upload your own below.</p>
+          </div>
+          <div class="field">
+            <button class="dropzone-mini" type="button" id="logo-drop">
+              <strong id="logo-drop-label">Drop an image, or click to upload</strong>
+              <span class="hint">PNG or SVG with a transparent background works best</span>
+            </button>
+            <input type="file" id="logo-file" accept="image/*" hidden />
+            <p class="field-hint">Error correction jumps to H automatically, so the code stays readable underneath.</p>
+          </div>
+          <div id="logo-controls" hidden>
+            <div class="field">
+              <span class="field-label" id="lbl-logo-anim">Animation</span>
+              <div class="seg seg-wrap" id="logo-anim-seg" role="radiogroup" aria-labelledby="lbl-logo-anim" data-value="none">
+                <button type="button" role="radio" data-val="none" aria-checked="true" tabindex="0">None</button>
+                <button type="button" role="radio" data-val="pulse" aria-checked="false" tabindex="-1">Pulse</button>
+                <button type="button" role="radio" data-val="draw" aria-checked="false" tabindex="-1">Draw</button>
+                <button type="button" role="radio" data-val="spin" aria-checked="false" tabindex="-1">Spin</button>
+                <button type="button" role="radio" data-val="bounce" aria-checked="false" tabindex="-1">Bounce</button>
+              </div>
+              <p class="field-hint" id="logo-anim-hint">
+                Animation lives in the SVG, so it plays on a website, in a slide, and on any screen.
+                A PNG is a single still frame.
+              </p>
+            </div>
+            <div class="field">
+              <label for="logo-size">Logo size <span class="range-val" id="logo-size-val">25%</span></label>
+              <div class="range-row">
+                <input type="range" id="logo-size" min="10" max="40" step="1" value="25"
+                       aria-describedby="logo-size-hint" />
+              </div>
+              <p class="field-hint" id="logo-size-hint">
+                Measured against the code, and held at constant area — a wide wordmark and a square
+                icon cover the same number of modules at the same setting.
+              </p>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button" id="logo-clear">
+              <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-trash" /></svg>Remove logo
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= Preview ================= -->
+  <aside class="app-col app-preview" aria-labelledby="pane-preview">
+    <h2 class="pane-head" id="pane-preview"><span class="n">04</span> Your QR code</h2>
+
+    <div class="qr-stage">
+      <div id="qr-output">
+        <div class="qr-skeleton"></div>
+      </div>
+    </div>
+
+    <div class="preview-meta">
+      <div class="readout" id="readout" data-state="idle" role="status" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="readout-text" id="readout-text">Starting the on-device engine…</span>
+      </div>
+
+      <div class="export-row">
+        <button class="btn btn-primary" type="button" id="export-png" disabled>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-download" /></svg>PNG
+        </button>
+        <button class="btn btn-secondary" type="button" id="export-svg" disabled>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-image" /></svg>SVG
+        </button>
+      </div>
+
+      <p class="preview-note">Free forever · Nothing sent to a server</p>
+    </div>
+  </aside>
+</main>
+
+<!-- Everything below sits after the fold. The generator above is complete on
+     its own; this is for the visitor who wants the reasoning, and for search
+     engines, which otherwise find a page with no prose on it at all. -->
+
+<p class="scroll-cue">
+  <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-chevron" /></svg>
+  How it works
+</p>
+
+<section class="band" aria-labelledby="b-why">
+  <div class="band-inner">
+    <h2 id="b-why">Every other generator sends your data to a server. This one doesn't.</h2>
+    <p>
+      A QR code is just an encoding — turning text into a grid of black and white squares. It needs no
+      account, no cloud, and no subscription. Qode does that maths in your browser, so the thing you
+      type never leaves the machine you typed it on.
+    </p>
+
+    <div class="grid-3">
+      <div class="tile">
+        <span class="tile-icon"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-cpu" /></svg></span>
+        <h3>A real encoder, compiled to WebAssembly</h3>
+        <p>
+          The ISO/IEC 18004 encoder behind this page is written from scratch in Go — Reed–Solomon error
+          correction, all eight mask patterns, versions 1 through 40 — and compiled to WebAssembly. Its
+          output is verified module-for-module against a reference implementation, including at
+          version 40's maximum capacity.
+        </p>
+      </div>
+      <div class="tile">
+        <span class="tile-icon"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-shield" /></svg></span>
+        <h3>Nothing is stored, so nothing can leak or expire</h3>
+        <p>
+          Wi-Fi passwords, private phone numbers, wallet addresses, unpublished links — none of it is
+          transmitted anywhere. There is no database recording where your codes point, which also means
+          no scan tracking, no rate limit, and no account that can lapse and break something you already
+          printed.
+        </p>
+      </div>
+      <div class="tile">
+        <span class="tile-icon"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-vector" /></svg></span>
+        <h3>True vector output, free</h3>
+        <p>
+          The SVG download is real geometry, not a traced bitmap, so it stays sharp on a business card
+          and on a billboard. Most generators put vector export behind a paid tier and hand you a
+          low-resolution PNG otherwise.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" aria-labelledby="b-types">
+  <div class="band-inner">
+    <h2 id="b-types">Fifteen types, and what each one actually encodes</h2>
+    <p>
+      Most types write a standard URI straight into the code, so the phone acts on it with no internet
+      connection at all. Two of them — App and Social — need a page to make a decision, so they carry
+      their payload in a URL fragment, which browsers never transmit to a server.
+    </p>
+
+    <dl class="type-table">
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-link" /></svg>Link</dt>
+        <dd>Opens a web address.</dd>
+        <dd class="payload">https://…</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-text" /></svg>Text</dt>
+        <dd>Plain text held inside the code. Works with no signal.</dd>
+        <dd class="payload">raw UTF-8</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-mail" /></svg>E-mail</dt>
+        <dd>Opens a new message with the subject and body filled in.</dd>
+        <dd class="payload">mailto:…?subject=&amp;body=</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-phone" /></svg>Call</dt>
+        <dd>Loads the number into the dialer.</dd>
+        <dd class="payload">tel:+…</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-sms" /></svg>SMS</dt>
+        <dd>Opens a text message, optionally pre-written.</dd>
+        <dd class="payload">sms:+…?body=</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-whatsapp" /></svg>WhatsApp</dt>
+        <dd>Starts a WhatsApp chat with a message ready to send.</dd>
+        <dd class="payload">https://wa.me/…?text=</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-wifi" /></svg>Wi-Fi</dt>
+        <dd>Joins a network without anyone reading the password aloud.</dd>
+        <dd class="payload">WIFI:T:WPA;S:…;P:…;;</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-contact" /></svg>V-card</dt>
+        <dd>Saves a full contact card to the phone's address book.</dd>
+        <dd class="payload">BEGIN:VCARD … END:VCARD</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-event" /></svg>Event</dt>
+        <dd>Adds a dated event straight to the calendar.</dd>
+        <dd class="payload">BEGIN:VCALENDAR … VEVENT</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-location" /></svg>Location</dt>
+        <dd>Drops a pin. Choose the native map app or a universal Maps link.</dd>
+        <dd class="payload">geo:lat,lng</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-app" /></svg>App</dt>
+        <dd>One code, both stores — the scanning phone picks the right one.</dd>
+        <dd class="payload">/r#a. … (fragment)</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-social" /></svg>Social</dt>
+        <dd>A small page of links, carried entirely inside the code.</dd>
+        <dd class="payload">/r#s. … (fragment)</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-video" /></svg>Video</dt>
+        <dd>Opens a YouTube, Vimeo or direct video link.</dd>
+        <dd class="payload">https://…</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-upi" /></svg>UPI Pay</dt>
+        <dd>Accepts payment via GPay, PhonePe, Paytm or any UPI app.</dd>
+        <dd class="payload">upi://pay?pa=…&amp;cu=INR</dd>
+      </div>
+      <div class="type-row">
+        <dt><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-crypto" /></svg>Crypto</dt>
+        <dd>A wallet address, optionally with an amount.</dd>
+        <dd class="payload">bitcoin:…?amount=</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<section class="band" aria-labelledby="b-print">
+  <div class="band-inner">
+    <h2 id="b-print">Before you print a thousand of them</h2>
+    <p>
+      A QR code that fails in the field is expensive in a way an on-screen one never is. These are the
+      failures worth ruling out first.
+    </p>
+
+    <ul class="checklist">
+      <li>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>
+        <span><b>Scan the actual print, not the screen.</b> Ink spread, paper texture and matte
+        lamination all cost you contrast that a monitor hides.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>
+        <span><b>Keep dark modules on a light background.</b> Inverted codes look striking and fail on
+        most phone cameras — the studio warns you when contrast drops too far.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>
+        <span><b>Leave the quiet zone alone.</b> Four modules of blank margin is the ISO minimum, and
+        it's the first thing a designer tends to crop away.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>
+        <span><b>Shorter content means chunkier modules.</b> A long URL pushes the version up and the
+        squares down, which is what limits scanning distance.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>
+        <span><b>Rule of thumb for size:</b> the printed code wants to be roughly a tenth of the
+        distance it will be scanned from. Across a room means bigger than you think.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>
+        <span><b>Test on both an iPhone and an Android</b> before committing. Their scanners disagree
+        about edge cases more often than you'd expect.</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="band" aria-labelledby="b-faq">
+  <div class="band-inner">
+    <h2 id="b-faq">Questions</h2>
+
+    <div class="faq">
+      <details>
+        <summary>Do these codes expire?</summary>
+        <p>
+          No, and they can't. A standard QR code is a self-contained encoding — the content is the code.
+          There is no lookup, no redirect service, and no account behind it, so there is nothing that can
+          be switched off. Codes generated here will still scan in ten years whether or not this site exists.
+        </p>
+      </details>
+      <details>
+        <summary>Is there a scan limit, or a watermark?</summary>
+        <p>
+          Neither. Scanning happens entirely between the phone and the printed code — Qode isn't
+          involved and couldn't count it. Downloads are unwatermarked PNG and SVG at any volume.
+        </p>
+      </details>
+      <details>
+        <summary>Can I edit a code after printing it?</summary>
+        <p>
+          Yes, using the Dynamic Link wizard. It points your code at a free page you already control —
+          a Notion page, a published Google Doc, a Linktree — so you edit that page instead of
+          reprinting. Competitors charge a subscription for this because they use a server to remember
+          the destination; Qode puts the destination in the URL fragment, which browsers never send to
+          any server.
+        </p>
+      </details>
+      <details>
+        <summary>Why does adding a logo change the error-correction level?</summary>
+        <p>
+          A logo physically covers modules that carry real data. Level H reserves about 30% of the code
+          for recovery, so the scanner reconstructs what the logo hides. The studio switches to H
+          automatically when you attach one, and keeps the logo's coverage constant as you resize it —
+          a wide wordmark and a square icon obscure the same number of modules at the same setting.
+        </p>
+      </details>
+      <details>
+        <summary>Which format should I download?</summary>
+        <p>
+          <code>SVG</code> for anything going to print or into a design tool — it's real vector geometry
+          and scales without limit. <code>PNG</code> at 1200&nbsp;px for slides, documents and the web.
+          When in doubt, take the SVG; you can always rasterise it later, but you can't go the other way.
+        </p>
+      </details>
+      <details>
+        <summary>Can I generate hundreds at once?</summary>
+        <p>
+          Yes — the Bulk page takes a CSV, generates a code per row and bundles them into a ZIP, as PNG
+          or SVG. There's no row limit, and the file is parsed in the browser rather than uploaded.
+        </p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>Qode — free, forever. No account, no database, no server-side record of where your codes point.</p>
+    <div class="footer-meta">
+      <span><span class="tick" aria-hidden="true">✓</span> Zero network calls</span>
+      <span><span class="tick" aria-hidden="true">✓</span> Verified against a reference encoder</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/js/config.js"></script>
+<script src="/js/wasm_exec.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/qrRenderer.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/studio.js"></script>
+</body>
+</html>

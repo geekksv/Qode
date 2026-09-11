@@ -1,0 +1,26 @@
+# Secrets — never commit. See .env.example for the shape.
+.env
+.env.local
+.env.*.local
+
+# Generated at build time from environment variables (scripts/build.js).
+# Committing this would put the API key back into the repo.
+web/js/config.js
+
+# Generated at build time so the URLs match wherever the site is deployed.
+web/sitemap.xml
+web/robots.txt
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Vercel
+.vercel

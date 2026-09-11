@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bulk QR Generation — Qode</title>
+<meta name="description" content="Upload a CSV, get a QR code for every row, download them all as a ZIP. Free, unlimited, and entirely on-device — your file is never uploaded anywhere." />
+<link rel="canonical" href="/bulk" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("qode-theme");
+      var m = (t === "light" || t === "dark" || t === "system") ? t : "dark";
+      if (m !== "system") document.documentElement.setAttribute("data-theme", m);
+      document.documentElement.setAttribute("data-theme-mode", m);
+    } catch (e) {}
+  })();
+</script>
+
+<meta name="theme-color" content="#08090a" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/favicon.svg" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Qode" />
+<meta property="og:title" content="Bulk QR generation, free and unlimited — Qode" />
+<meta property="og:description" content="A QR code per CSV row, bundled to a ZIP without your file ever leaving the browser." />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Bulk QR generation, free and unlimited — Qode" />
+<meta name="twitter:description" content="A QR code per CSV row, bundled to a ZIP without your file ever leaving the browser." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/styles.css" />
+
+<!-- No <link rel=preload> for the engine, deliberately — see index.html.
+     An as="fetch" preload only gets reused when its CORS mode matches the
+     fetch exactly, and in practice it kept missing, doubling the transfer
+     to 6.3MB per load. app.js starts the fetch as soon as it runs. -->
+</head>
+<body>
+
+<a class="skip-link" href="#bulk">Skip to the uploader</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-sun" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="11" cy="11" r="3.8" />
+      <path d="M11 2v2.2M11 17.8V20M20 11h-2.2M4.2 11H2M17.4 4.6l-1.6 1.6M6.2 15.8l-1.6 1.6M17.4 17.4l-1.6-1.6M6.2 6.2 4.6 4.6" />
+    </g>
+    <path id="i-moon" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M18 12.4A7.6 7.6 0 0 1 9.6 4a7.6 7.6 0 1 0 8.4 8.4Z" />
+    <g id="i-monitor" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4" width="17" height="11" rx="2" />
+      <path d="M8 18.5h6M11 15.5v3" />
+    </g>
+    <g id="i-upload" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 15V4M6.5 8.5 11 4l4.5 4.5M3 15.5v2A2.5 2.5 0 0 0 5.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-2" />
+    </g>
+    <g id="i-download" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3v10M6.8 9.2 11 13.4l4.2-4.2M3.5 15v2.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15" />
+    </g>
+    <g id="i-alert" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3.5 20 18.5H2L11 3.5Z" />
+      <path d="M11 8.5v4M11 15.5h.01" />
+    </g>
+  </defs>
+</svg>
+
+<header class="topnav">
+  <a class="brand" href="/">
+    <img class="brand-mark" src="/favicon.svg" alt="" width="22" height="22" />
+    <span class="brand-name">Qode</span>
+  </a>
+  <nav class="navlinks" aria-label="Primary">
+    <a href="/">Studio</a>
+    <a href="/wizard">Dynamic Link</a>
+    <a href="/bulk" aria-current="page">Bulk</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme">
+      <svg data-icon="light" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-sun" /></svg>
+      <svg data-icon="dark" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-moon" /></svg>
+      <svg data-icon="system" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-monitor" /></svg>
+    </button>
+  </div>
+</header>
+
+<main class="shell" id="bulk">
+
+  <section class="hero">
+    <span class="hero-tag"><span class="pulse"></span>Unlimited rows · Nothing uploaded</span>
+    <h1>Hundreds of codes, one CSV.<br /><span class="muted">Zero cost.</span></h1>
+    <p>
+      Every competitor charges for this. Your file never leaves your device — the CSV is parsed, every
+      code encoded, and the ZIP assembled by the Go/WASM engine running in this tab.
+    </p>
+  </section>
+
+  <div class="bulk-controls">
+    <div class="field">
+      <span class="field-label" id="lbl-ecc">Error correction, applied to every row</span>
+      <div class="seg" id="ecc-seg" role="radiogroup" aria-labelledby="lbl-ecc" data-value="M">
+        <button type="button" role="radio" data-val="L" aria-checked="false" tabindex="-1">L <span class="seg-sub">7%</span></button>
+        <button type="button" role="radio" data-val="M" aria-checked="true" tabindex="0">M <span class="seg-sub">15%</span></button>
+        <button type="button" role="radio" data-val="Q" aria-checked="false" tabindex="-1">Q <span class="seg-sub">25%</span></button>
+        <button type="button" role="radio" data-val="H" aria-checked="false" tabindex="-1">H <span class="seg-sub">30%</span></button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label" id="lbl-fmt">Export format</span>
+      <div class="seg" id="format-seg" role="radiogroup" aria-labelledby="lbl-fmt" data-value="png">
+        <button type="button" role="radio" data-val="png" aria-checked="true" tabindex="0">PNG <span class="seg-sub">800px</span></button>
+        <button type="button" role="radio" data-val="svg" aria-checked="false" tabindex="-1">SVG <span class="seg-sub">vector</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-upload" /></svg>
+    <h2>Drop a CSV here</h2>
+    <p>Lay your spreadsheet out like this, then save it as CSV.</p>
+
+    <!-- Shown as a spreadsheet rather than raw CSV text, because the thing
+         people get wrong is the LAYOUT, not the comma syntax. In particular
+         row 1 is always discarded as headings (internal/bulk/bulk.go), so a
+         sample that doesn't make that obvious silently loses their first
+         entry. -->
+    <div class="sheet" role="img"
+         aria-label="Spreadsheet example. Column A holds the link, column B holds the file name. Row 1 is headings and is skipped. Row 2 onward is your data.">
+      <table aria-hidden="true">
+        <tr>
+          <td class="sheet-corner"></td>
+          <th class="sheet-col">A</th>
+          <th class="sheet-col">B</th>
+        </tr>
+        <tr class="sheet-headrow">
+          <th class="sheet-row">1</th>
+          <td>url</td>
+          <td>label</td>
+        </tr>
+        <tr>
+          <th class="sheet-row">2</th>
+          <td>https://example.com/a</td>
+          <td>poster-north</td>
+        </tr>
+        <tr>
+          <th class="sheet-row">3</th>
+          <td>https://example.com/b</td>
+          <td>poster-south</td>
+        </tr>
+      </table>
+    </div>
+
+    <ul class="sheet-legend">
+      <li><b>Column A</b> — what the QR code will contain. A link, phone number, anything.</li>
+      <li><b>Column B</b> — optional. Names the downloaded file, e.g. <code>poster-north.png</code>.</li>
+      <li><b>Row 1 is always skipped</b> as headings. Start your real data on row 2.</li>
+    </ul>
+    <button class="btn btn-secondary" type="button" id="browse-btn">Choose a file</button>
+    <input type="file" id="csv-file" accept=".csv,text/csv" hidden />
+  </div>
+
+  <div class="msg bad" id="bulk-error" role="status">
+    <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+    <span></span>
+  </div>
+
+  <section id="results" hidden aria-labelledby="results-title">
+    <div class="results-head">
+      <div>
+        <h2 id="results-title">Generated codes</h2>
+        <div class="results-stats" id="results-stats"></div>
+      </div>
+      <button class="btn btn-primary" type="button" id="download-zip">
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-download" /></svg>
+        Download all as ZIP
+      </button>
+    </div>
+
+    <div class="progress" id="zip-progress" hidden><span></span></div>
+
+    <div class="table-wrap">
+      <table class="bulk-table">
+        <thead>
+          <tr>
+            <th scope="col"><span class="sr-only">Preview</span></th>
+            <th scope="col">Label</th>
+            <th scope="col">Data</th>
+            <th scope="col">Version</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>Qode — free, forever. No account, no row limit, and your CSV is never uploaded to any server.</p>
+    <div class="footer-meta">
+      <span><span class="tick" aria-hidden="true">✓</span> Parsed in-tab</span>
+      <span><span class="tick" aria-hidden="true">✓</span> ZIP built in-tab</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/js/wasm_exec.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/qrRenderer.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/bulk.js"></script>
+</body>
+</html>

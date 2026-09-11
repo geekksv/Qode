@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Dynamic Link Wizard — Qode</title>
+<meta name="description" content="Make a printed QR code editable forever, with no database and no subscription. Point the code at a free page you already control, and change that page whenever you like." />
+<link rel="canonical" href="/wizard" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("qode-theme");
+      var m = (t === "light" || t === "dark" || t === "system") ? t : "dark";
+      if (m !== "system") document.documentElement.setAttribute("data-theme", m);
+      document.documentElement.setAttribute("data-theme-mode", m);
+    } catch (e) {}
+  })();
+</script>
+
+<meta name="theme-color" content="#08090a" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/favicon.svg" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Qode" />
+<meta property="og:title" content="Dynamic QR codes without a database — Qode" />
+<meta property="og:description" content="Every other generator charges a subscription for editable QR codes because they need a server to remember the destination. Qode doesn't need one." />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Dynamic QR codes without a database — Qode" />
+<meta name="twitter:description" content="Every other generator charges a subscription for editable QR codes because they need a server to remember the destination. Qode doesn't need one." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<a class="skip-link" href="#wizard">Skip to the wizard</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-sun" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="11" cy="11" r="3.8" />
+      <path d="M11 2v2.2M11 17.8V20M20 11h-2.2M4.2 11H2M17.4 4.6l-1.6 1.6M6.2 15.8l-1.6 1.6M17.4 17.4l-1.6-1.6M6.2 6.2 4.6 4.6" />
+    </g>
+    <path id="i-moon" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M18 12.4A7.6 7.6 0 0 1 9.6 4a7.6 7.6 0 1 0 8.4 8.4Z" />
+    <g id="i-monitor" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4" width="17" height="11" rx="2" />
+      <path d="M8 18.5h6M11 15.5v3" />
+    </g>
+    <g id="i-doc" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2.5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5L12 2.5Z" />
+      <path d="M12 2.5v6h6" />
+    </g>
+    <g id="i-form" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="2.5" width="15" height="17" rx="2" />
+      <path d="M7 7h8M7 11h8M7 15h4" />
+    </g>
+    <g id="i-sheet" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="3.5" width="17" height="15" rx="2" />
+      <path d="M2.5 8.5h17M8.5 8.5v10M2.5 13.5h17" />
+    </g>
+    <g id="i-link" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 12.5a3.5 3.5 0 0 0 5.3.4l2.6-2.6a3.5 3.5 0 0 0-5-5l-1.5 1.5" />
+      <path d="M12.5 9.5a3.5 3.5 0 0 0-5.3-.4l-2.6 2.6a3.5 3.5 0 0 0 5 5l1.5-1.5" />
+    </g>
+    <g id="i-page" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="3.5" width="17" height="15" rx="2" />
+      <path d="M2.5 7.5h17M5.5 5.5h.01M8 5.5h.01" />
+    </g>
+    <g id="i-note" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18.5 12.5V4.5a2 2 0 0 0-2-2h-11a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h8Z" />
+      <path d="M11.5 19.5v-5a2 2 0 0 1 2-2h5" />
+    </g>
+    <g id="i-check" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m4 11.5 4.6 4.5L18 6" />
+    </g>
+    <g id="i-alert" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3.5 20 18.5H2L11 3.5Z" />
+      <path d="M11 8.5v4M11 15.5h.01" />
+    </g>
+    <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8.5" />
+      <path d="M11 10.5v5M11 7h.01" />
+    </g>
+    <g id="i-external" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4h6v6M18 4l-8 8M16 13v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+    </g>
+    <g id="i-arrow" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 11h13M12 6l5 5-5 5" />
+    </g>
+  </defs>
+</svg>
+
+<header class="topnav">
+  <a class="brand" href="/">
+    <img class="brand-mark" src="/favicon.svg" alt="" width="22" height="22" />
+    <span class="brand-name">Qode</span>
+  </a>
+  <nav class="navlinks" aria-label="Primary">
+    <a href="/">Studio</a>
+    <a href="/wizard" aria-current="page">Dynamic Link</a>
+    <a href="/bulk">Bulk</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme">
+      <svg data-icon="light" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-sun" /></svg>
+      <svg data-icon="dark" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-moon" /></svg>
+      <svg data-icon="system" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-monitor" /></svg>
+    </button>
+  </div>
+</header>
+
+<main class="shell">
+
+  <section class="hero">
+    <span class="hero-tag"><span class="pulse"></span>No database · No account · Unlimited</span>
+    <h1>Make a printed QR code editable.<br /><span class="muted">Without a database.</span></h1>
+    <p>
+      Every other generator locks this behind a subscription, because changing where a printed code
+      points requires a server that remembers the destination. Qode skips the server entirely: point
+      your code at a free page you already control, and edit <em>that page</em> whenever you like. The
+      printed code never has to change.
+    </p>
+  </section>
+
+  <div class="steps" id="wizard">
+
+    <section class="step" id="step-1" data-state="active" aria-labelledby="step-1-title">
+      <span class="step-num" aria-hidden="true">01</span>
+      <div class="step-body">
+        <h2 id="step-1-title">Pick where your editable content will live</h2>
+        <p>All of these are free, and all of them let you change the content after the code is printed.</p>
+        <div class="provider-grid" id="provider-grid" role="group" aria-label="Content host"></div>
+      </div>
+    </section>
+
+    <section class="step" id="step-2" data-state="pending" aria-labelledby="step-2-title" hidden>
+      <span class="step-num" aria-hidden="true">02</span>
+      <div class="step-body">
+        <h2 id="step-2-title">Set it up</h2>
+        <ol class="instructions" id="provider-steps"></ol>
+      </div>
+    </section>
+
+    <section class="step" id="step-3" data-state="pending" aria-labelledby="step-3-title" hidden>
+      <span class="step-num" aria-hidden="true">03</span>
+      <div class="step-body">
+        <h2 id="step-3-title">Paste the public link</h2>
+        <p>We check the format, and where the provider allows it, confirm the link is actually live.</p>
+
+        <div class="field" style="margin-top:16px;">
+          <label class="sr-only" for="link-input">Public link</label>
+          <input type="url" id="link-input" spellcheck="false" autocomplete="off" placeholder="https://…" />
+        </div>
+
+        <div class="msg" id="validation-msg" role="status" aria-live="polite">
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+          <span></span>
+        </div>
+
+        <div class="step-actions">
+          <button class="btn btn-primary" type="button" id="use-link" disabled>
+            Encode this link
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-arrow" /></svg>
+          </button>
+          <a class="btn btn-secondary" id="open-link" href="#" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-external" /></svg>
+            Open in a new tab to check
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="note">
+    <div>
+      <h2>How this works without a server</h2>
+      <p>
+        Your code encodes a Qode <code>/r</code> address with the destination packed into the URL's
+        fragment — the part after the <code>#</code>. Browsers never transmit a fragment to any server,
+        so the redirect page decodes it locally, in the visitor's own browser.
+      </p>
+      <p>
+        The practical consequence: Qode has no record of where any code points, there is nothing to
+        expire, nothing to rate-limit, and no account that can lapse and break your printed material.
+      </p>
+    </div>
+  </aside>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>Qode never stores or sees the destination you choose — it's encoded into the QR code itself.</p>
+    <div class="footer-meta">
+      <span><span class="tick" aria-hidden="true">✓</span> Nothing to expire</span>
+      <span><span class="tick" aria-hidden="true">✓</span> No scan tracking</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/js/wasm_exec.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/wizard.js"></script>
+</body>
+</html>
