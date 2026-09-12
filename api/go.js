@@ -7,7 +7,7 @@
 // A miss returns a real 404 page rather than an empty response or, worse, a
 // redirect somewhere arbitrary. An unknown key must never become an open
 // redirect.
-const { db, validKey, clientIp } = require("./_db.js");
+const { db, keyProblem } = require("./_db.js");
 
 function escapeHtml(v) {
   return String(v)
@@ -38,7 +38,9 @@ function page(res, status, title, body) {
 module.exports = async function handler(req, res) {
   const key = String((req.query && req.query.key) || "").toLowerCase();
 
-  if (!validKey(key)) {
+  // Rejected before it ever reaches the database: a malformed key cannot
+  // name a real link, so there is nothing to look up.
+  if (keyProblem(key)) {
     return page(res, 404, "Unknown code — Qode",
       "<h1>This code doesn't point anywhere</h1>" +
       "<p>The address it carries isn't one this site recognises.</p>" +
