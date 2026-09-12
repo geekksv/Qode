@@ -8,11 +8,13 @@
 // no deployment URL is hardcoded anywhere. Run it locally with `node
 // scripts/build.js`; Vercel runs it automatically via buildCommand.
 //
-// Dependency-free on purpose: no package.json, no install step, so the
-// whole site stays a plain static deploy.
+// This script itself stays dependency-free: it uses only Node built-ins, so
+// the static half of the site builds even if nothing is installed. The
+// switchable-link API under api/ is the only part that needs npm.
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const ROOT = path.join(__dirname, "..");
 const WEB = path.join(ROOT, "web");
@@ -90,7 +92,8 @@ window.QodeConfig = {
 const PAGES = [
   { loc: "/", changefreq: "weekly", priority: "1.0" },
   { loc: "/wizard", changefreq: "monthly", priority: "0.8" },
-  { loc: "/switch", changefreq: "monthly", priority: "0.8" },
+  // /switch is deliberately absent: it is the owner's console, it is marked
+  // noindex in the page itself, and listing it here would contradict that.
   { loc: "/bulk", changefreq: "monthly", priority: "0.8" },
 ];
 
@@ -153,6 +156,58 @@ if (isRealDeploy) {
   console.log("build: og:image URLs written into " + patched + " page(s)");
 } else {
   console.log("build: local build — leaving __SITE__ placeholders in the HTML");
+}
+
+// ---- Cache busting ---------------------------------------------------------
+
+// vercel.json caches /js/ and /css/ for an hour while HTML revalidates every
+// time. Without versioned URLs that combination is a real bug rather than a
+// theoretical one: a deploy that changes a page AND its script serves the new
+// HTML to a returning visitor alongside their cached copy of the old script,
+// the element ids no longer line up, and they get a blank page until the hour
+// is up. Stamping a build id onto every local asset reference makes the two
+// move together.
+//
+// The id is derived from the asset contents, so an unchanged build produces
+// an unchanged id and the caching still does its job.
+
+function hashAssets(dir, hash) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir).sort()) {
+    const full = path.join(dir, entry);
+    if (fs.statSync(full).isDirectory()) hashAssets(full, hash);
+    else if (/\.(js|css)$/.test(entry)) hash.update(fs.readFileSync(full));
+  }
+}
+
+const assetHash = crypto.createHash("sha256");
+hashAssets(path.join(WEB, "js"), assetHash);
+hashAssets(path.join(WEB, "css"), assetHash);
+const BUILD_ID = assetHash.digest("hex").slice(0, 10);
+
+// Skipped locally for the same reason as the __SITE__ substitution: a local
+// build must not rewrite the committed HTML. The dev server sends no-store,
+// so there is nothing to bust there anyway.
+if (isRealDeploy) {
+  let stamped = 0;
+  for (const page of fs.readdirSync(WEB)) {
+    if (!page.endsWith(".html")) continue;
+    const file = path.join(WEB, page);
+    const before = fs.readFileSync(file, "utf8");
+    // Only local, unversioned references; anything absolute or already
+    // carrying a query string is left exactly as it is.
+    const after = before.replace(
+      /(src|href)="(\/(?:js|css)\/[A-Za-z0-9._\/-]+\.(?:js|css))"/g,
+      (m, attr, url) => attr + '="' + url + "?v=" + BUILD_ID + '"'
+    );
+    if (after !== before) {
+      fs.writeFileSync(file, after, "utf8");
+      stamped++;
+    }
+  }
+  console.log("build: asset version " + BUILD_ID + " stamped into " + stamped + " page(s)");
+} else {
+  console.log("build: asset version " + BUILD_ID + " (not stamped on a local build)");
 }
 
 // ---- Report ----------------------------------------------------------------
