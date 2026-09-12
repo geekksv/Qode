@@ -92,7 +92,8 @@ window.QodeConfig = {
 const PAGES = [
   { loc: "/", changefreq: "weekly", priority: "1.0" },
   { loc: "/wizard", changefreq: "monthly", priority: "0.8" },
-  { loc: "/switch", changefreq: "monthly", priority: "0.8" },
+  // /switch is absent on purpose: it is the owner's console, it is noindex in
+  // the page itself, and listing it would contradict that.
   { loc: "/bulk", changefreq: "monthly", priority: "0.8" },
 ];
 

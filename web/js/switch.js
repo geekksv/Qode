@@ -1,26 +1,34 @@
 // Switchable codes: make one, or re-aim one you already printed.
 //
-// Anyone can use this, which changes what the page has to be careful about.
-// Two things follow from it and drive most of what is here:
+// Private — everything here is behind the admin token, which is held in
+// sessionStorage so closing the tab signs you out.
 //
-//   1. Photographing a code proves nothing. Anyone can do that to a poster on
-//      a wall, so the upload only ever *reads* a code. Changing where it goes
-//      needs the edit key issued when it was made.
+// This was briefly open to the public, with a per-link edit key proving
+// ownership. Closed again by choice: a free anonymous redirector is a
+// phishing-laundering vector, and the cost of that going wrong is the whole
+// domain being blocklisted rather than just this page breaking.
 //
-//   2. The edit key is shown once. It is stored server-side only as a hash,
-//      so it genuinely cannot be recovered — the page says so plainly rather
-//      than letting someone find out later.
-//
-// Codes made here are remembered in localStorage as a convenience for finding
-// them again. That is a notebook, not a login: the key still has to be typed.
+// One thing that has never been true, in either version: that holding the
+// printed code lets you change it. Anyone can photograph a poster, so
+// possession of a code is not a credential and never was. Uploading one here
+// only ever *reads* it.
 (function () {
   "use strict";
 
   var UI = window.QodeUI;
-  var MINE_KEY = "qode-my-codes";
+  var TOKEN_KEY = "qode-admin-token";
   var JSQR_URL = "/js/vendor/jsqr.js";
 
   var el = function (id) { return document.getElementById(id); };
+
+  var gate = el("gate");
+  var gateForm = el("gate-form");
+  var gateToken = el("gate-token");
+  var gateSubmit = el("gate-submit");
+  var gateError = el("gate-error");
+  var workspace = el("workspace");
+  var liveCount = el("live-count");
+  var signOutBtn = el("sign-out");
 
   var tabCreate = el("tab-create");
   var tabChange = el("tab-change");
@@ -35,12 +43,7 @@
   var createStage = el("create-stage");
   var createTarget = el("create-target");
   var createDest = el("create-dest");
-  var quota = el("quota");
 
-  var keybox = el("keybox");
-  var editTokenEl = el("edit-token");
-  var copyToken = el("copy-token");
-  var ackKey = el("ack-key");
 
   var dropzone = el("dropzone");
   var browseBtn = el("browse-btn");
@@ -53,7 +56,6 @@
   var found = el("found");
   var foundName = el("found-name");
   var foundCurrent = el("found-current");
-  var foundToken = el("found-token");
   var foundUrl = el("found-url");
   var foundError = el("found-error");
   var foundSave = el("found-save");
@@ -74,47 +76,26 @@
   var lastSvg = null;
   var lastKey = null;
 
-  // ---- Remembered codes ---------------------------------------------------
+  var token = "";
+  var live = {}; // key -> url, as the server currently has it
 
-  function mine() {
-    try {
-      var raw = localStorage.getItem(MINE_KEY);
-      var parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      return [];
-    }
+  function getToken() {
+    try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
   }
 
-  function remember(entry) {
+  function setToken(v) {
     try {
-      var list = mine().filter(function (m) { return m.key !== entry.key; });
-      list.unshift(entry);
-      localStorage.setItem(MINE_KEY, JSON.stringify(list.slice(0, 50)));
-    } catch (e) {
-      /* private window, or storage full — the code still works */
-    }
-    renderMine();
-  }
-
-  function forget(key) {
-    try {
-      localStorage.setItem(MINE_KEY, JSON.stringify(
-        mine().filter(function (m) { return m.key !== key; })
-      ));
+      if (v) sessionStorage.setItem(TOKEN_KEY, v);
+      else sessionStorage.removeItem(TOKEN_KEY);
     } catch (e) {}
-    renderMine();
-  }
-
-  function tokenFor(key) {
-    var hit = mine().filter(function (m) { return m.key === key; })[0];
-    return hit ? hit.token : "";
+    token = v;
   }
 
   // ---- API ----------------------------------------------------------------
 
   function api(method, body, query) {
     var opts = { method: method, headers: {}, cache: "no-store" };
+    if (token) opts.headers["Authorization"] = "Bearer " + token;
     if (body) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
@@ -251,16 +232,15 @@
 
     api("POST", { key: key, url: url })
       .then(function (data) {
-        remember({ key: data.link.key, token: data.editToken, url: data.link.url, createdAt: data.link.createdAt });
-        showToken(data.editToken);
-        setQuota(data.remaining);
+        live[data.link.key] = data.link;
+        renderCount();
         newKey.value = "";
         newUrl.value = "";
         return showCode(data.link.key, data.link.url);
       })
       .catch(function (err) {
+        if (err.status === 404) return signedOut();
         setError(createError, err.message);
-        if (err.status === 429 && err.data && typeof err.data.used === "number") setQuota(0);
       })
       .then(function () {
         createBtn.textContent = "Generate code";
@@ -268,48 +248,12 @@
       });
   });
 
-  function setQuota(remaining) {
-    if (remaining === null || remaining === undefined) { quota.textContent = ""; return; }
-    quota.textContent = remaining > 0
-      ? remaining + (remaining === 1 ? " code" : " codes") + " left today"
-      : "No codes left today";
-    quota.classList.toggle("is-out", remaining <= 0);
+  // A 404 from the API means the token stopped working — it answers that to
+  // anyone unauthenticated rather than confirming the endpoint exists.
+  function signedOut() {
+    setToken("");
+    showGate("That session expired. Sign in again.");
   }
-
-  function showToken(token) {
-    keybox.hidden = false;
-    editTokenEl.textContent = token;
-    ackKey.checked = false;
-    keybox.classList.remove("is-acked");
-  }
-
-  ackKey.addEventListener("change", function () {
-    keybox.classList.toggle("is-acked", ackKey.checked);
-    if (ackKey.checked) editTokenEl.classList.add("is-dim");
-    else editTokenEl.classList.remove("is-dim");
-  });
-
-  copyToken.addEventListener("click", function () {
-    var text = editTokenEl.textContent;
-    var done = function () {
-      copyToken.textContent = "Copied";
-      setTimeout(function () { copyToken.textContent = "Copy"; }, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else { fallback(); }
-    function fallback() {
-      // execCommand is deprecated but is the only option on http:// origins
-      // and in older in-app browsers.
-      var ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.cssText = "position:fixed;left:-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); done(); } catch (e) {}
-      ta.remove();
-    }
-  });
 
   function targetFor(key) {
     return window.location.origin + "/go/" + key;
@@ -510,9 +454,9 @@
     foundUrl.value = link.url;
     // If this browser made the code, fill the key in — it is a convenience,
     // not an authorisation: the server still checks it.
-    foundToken.value = tokenFor(link.key);
     foundState();
-    (foundToken.value ? foundUrl : foundToken).focus();
+    foundUrl.focus();
+    foundUrl.select();
   }
 
   function showForeign(text, pill, why, offerKey) {
@@ -542,7 +486,6 @@
     dropzone.hidden = false;
     setError(scanError, null);
     qrFile.value = "";
-    foundToken.value = "";
     renderMine();
   }
 
@@ -592,12 +535,11 @@
     var url = foundUrl.value.trim();
     var problem = urlProblem(url);
     var changed = url !== editingCurrent;
-    foundSave.disabled = !!problem || !changed || !foundToken.value.trim();
+    foundSave.disabled = !!problem || !changed;
     setError(foundError, url ? problem : null);
   }
 
   foundUrl.addEventListener("input", foundState);
-  foundToken.addEventListener("input", foundState);
 
   foundSave.addEventListener("click", function () {
     if (!editingKey) return;
@@ -609,17 +551,19 @@
     foundSave.textContent = "Saving…";
     setError(foundError, null);
 
-    api("PATCH", { key: editingKey, url: url, editToken: foundToken.value.trim() })
+    api("PATCH", { key: editingKey, url: url })
       .then(function (data) {
         editingCurrent = data.link.url;
         foundCurrent.textContent = data.link.url;
-        if (tokenFor(editingKey)) {
-          remember({ key: editingKey, token: foundToken.value.trim(), url: data.link.url, createdAt: data.link.createdAt });
-        }
+        live[editingKey] = data.link;
+        renderCount();
         UI.message(statusEl, "ok",
           "Done. Every printed copy of /go/" + editingKey + " now opens " + data.link.url + ".");
       })
-      .catch(function (err) { setError(foundError, err.message); })
+      .catch(function (err) {
+        if (err.status === 404) return signedOut();
+        setError(foundError, err.message);
+      })
       .then(function () {
         foundSave.textContent = "Save new destination";
         foundState();
@@ -628,9 +572,6 @@
 
   foundDelete.addEventListener("click", function () {
     if (!editingKey) return;
-    if (!foundToken.value.trim()) {
-      return setError(foundError, "Deleting needs the edit key too.");
-    }
     var ok = window.confirm(
       'Delete "' + editingKey + '"?\n\n' +
       "Every QR code already printed with this name stops working immediately, and only " +
@@ -639,10 +580,11 @@
     if (!ok) return;
 
     foundDelete.disabled = true;
-    api("DELETE", { key: editingKey, editToken: foundToken.value.trim() })
+    api("DELETE", { key: editingKey })
       .then(function () {
         UI.message(statusEl, "info", '"' + editingKey + '" is gone.');
-        forget(editingKey);
+        delete live[editingKey];
+        renderCount();
         resetScan();
       })
       .catch(function (err) { setError(foundError, err.message); })
@@ -688,58 +630,116 @@
 
   // ---- Codes made here ----------------------------------------------------
 
+  // Every code on the site, not just ones made in this browser — the admin
+  // token can see and change all of them.
   function renderMine() {
-    var list = mine();
-    known.hidden = list.length === 0 || !found.hidden || !foreign.hidden || !nameLookup.hidden;
+    var keys = Object.keys(live).sort();
+    known.hidden = !keys.length || !found.hidden || !foreign.hidden || !nameLookup.hidden;
     rowsEl.innerHTML = "";
 
-    list.forEach(function (entry) {
+    keys.forEach(function (key) {
+      var entry = live[key];
+      var hits = entry.hits || 0;
       var row = document.createElement("div");
       row.className = "link-row";
       row.innerHTML =
         '<div class="known-row">' +
           '<div class="known-main">' +
-            '<span class="known-key mono">/go/' + UI.escapeHtml(entry.key) + "</span>" +
+            '<span class="known-key mono">/go/' + UI.escapeHtml(key) + "</span>" +
             '<span class="known-url">' + UI.escapeHtml(entry.url || "") + "</span>" +
           "</div>" +
           '<div class="known-side">' +
+            (hits ? '<span class="lr-hits">' + hits + " scan" + (hits === 1 ? "" : "s") + "</span>" : "") +
             '<button class="btn btn-secondary btn-sm known-edit" type="button">Change</button>' +
-            '<button class="repeater-del known-forget" type="button" aria-label="Forget ' +
-              UI.escapeHtml(entry.key) + '"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-trash" /></svg></button>' +
           "</div>" +
         "</div>";
 
       row.querySelector(".known-edit").addEventListener("click", function () {
-        api("GET", null, "?key=" + encodeURIComponent(entry.key))
-          .then(function (data) { showFound(data.link); })
-          .catch(function (err) {
-            if (err.status === 404) {
-              UI.message(statusEl, "warn",
-                '"' + entry.key + '" no longer exists on the server. Removing it from this list.');
-              return forget(entry.key);
-            }
-            UI.message(statusEl, "bad", err.message);
-          });
-      });
-
-      // Forgets the note, not the code. Worth being explicit about, since the
-      // two are easy to confuse and one of them is irreversible.
-      row.querySelector(".known-forget").addEventListener("click", function () {
-        var ok = window.confirm(
-          'Remove "' + entry.key + '" from this list?\n\n' +
-          "The code keeps working and stays where it points. This only forgets it here, along " +
-          "with the copy of the edit key kept in this browser — so make sure you have that saved."
-        );
-        if (ok) forget(entry.key);
+        showFound(entry);
       });
 
       rowsEl.appendChild(row);
     });
   }
 
+  // ---- Gate ---------------------------------------------------------------
+
+  function showGate(message) {
+    gate.hidden = false;
+    workspace.hidden = true;
+    if (message) {
+      gateError.hidden = false;
+      gateError.querySelector("span").textContent = message;
+    } else {
+      gateError.hidden = true;
+    }
+    gateToken.focus();
+  }
+
+  function showWorkspace() {
+    gate.hidden = true;
+    workspace.hidden = false;
+    refresh();
+  }
+
+  // The list doubles as the credential check: it is admin-only, so a token
+  // that can read it is a token that works.
+  function refresh() {
+    return api("GET")
+      .then(function (data) {
+        live = {};
+        (data.links || []).forEach(function (l) { live[l.key] = l; });
+        renderCount();
+        renderMine();
+        return true;
+      });
+  }
+
+  gateForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var candidate = gateToken.value.trim();
+    if (!candidate) return;
+
+    gateSubmit.disabled = true;
+    gateSubmit.textContent = "Checking…";
+    setToken(candidate);
+
+    refresh()
+      .then(function () {
+        gateToken.value = "";
+        showWorkspace();
+      })
+      .catch(function (err) {
+        setToken("");
+        // The API answers 404 to anyone without the token, so say something
+        // useful rather than passing that through.
+        showGate(err.status === 404 ? "That password isn't right." : err.message);
+      })
+      .then(function () {
+        gateSubmit.disabled = false;
+        gateSubmit.textContent = "Unlock";
+      });
+  });
+
+  signOutBtn.addEventListener("click", function () {
+    setToken("");
+    showGate("");
+  });
+
+  function renderCount() {
+    var n = Object.keys(live).length;
+    liveCount.textContent = n
+      ? n + (n === 1 ? " code is live." : " codes are live.") + " Changes apply on the next scan."
+      : "No codes yet.";
+  }
+
   // ---- Boot ---------------------------------------------------------------
 
   createState();
-  renderMine();
-  setQuota(null);
+  token = getToken();
+  if (token) {
+    refresh().then(showWorkspace, function () { setToken(""); showGate(""); });
+  } else {
+    showGate("");
+  }
 })();
