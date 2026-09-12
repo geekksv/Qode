@@ -86,6 +86,17 @@ The **name** is printed and can never change. The **destination** behind it
 is one field in `/switch`, and saving takes effect on the next scan — no
 rebuild, no redeploy, no reprint.
 
+`/switch` has two tabs, because they are two different jobs. **Generate**
+names a code and hands back the QR. **Change** takes the code you already
+printed — drop in a photo of the poster — decodes it in the tab, tells you
+where that exact piece of paper currently sends people, and lets you aim it
+somewhere else. Decoding happens locally via
+[jsQR](https://github.com/cozmo/jsQR); the picture is never uploaded.
+
+A scanned code that is not switchable is explained rather than rejected: a
+self-contained Qode code, a plain URL, or plain text each say why there is
+nothing in between to re-aim.
+
 The lookup is a serverless function against [Turso](https://turso.tech)
 (SQLite at the edge, free tier). `/go/<key>` answers with a `302`, never a
 `301`, because a permanent redirect gets cached by browsers and proxies —
@@ -262,6 +273,7 @@ web/                  The static site, deployed as-is
   ├── r.html            Redirect target — no WASM, no web font, ~4 KB
   ├── css/styles.css    One stylesheet, token-driven, light + dark
   ├── js/               Vanilla JS, no framework
+  │   └── vendor/jsqr.js  QR *decoder* (Apache-2.0), loaded only by /switch
   └── wasm/main.wasm    The compiled encoder
 ```
 

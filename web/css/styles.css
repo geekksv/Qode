@@ -1132,11 +1132,11 @@ input[type="range"] {
 .repeater-add { align-self: flex-start; margin-top: var(--s-1); }
 
 /* --------------------------------------------------------------------------
-   11c. Switchable links editor
+   11c. Switchable links
 
-   Deliberately spare. This page is a tool the owner opens to change one URL
-   and leave, not something to be read, so it carries no hero, no explainer
-   and no decoration that would slow that down.
+   Two jobs, two tabs: generate a code, or hand it one you already printed and
+   re-aim it. Spare on purpose — this is a tool someone opens to change one
+   URL and leave, not a page to be read.
    -------------------------------------------------------------------------- */
 
 .shell-narrow {
@@ -1148,22 +1148,17 @@ input[type="range"] {
 /* ---- Sign in ---- */
 
 .panel-gate {
-  padding: var(--s-7) var(--s-6);
+  padding: var(--s-6);
   max-width: 340px;
   margin: 12vh auto 0;
   text-align: center;
 }
-.panel-gate .gate-icon {
-  width: 26px;
-  height: 26px;
-  color: var(--ink-3);
-  margin-bottom: var(--s-3);
-}
+.panel-gate .gate-icon { width: 26px; height: 26px; color: var(--ink-3); margin-bottom: var(--s-3); }
 .panel-gate h1 { font-size: 17px; font-weight: 600; margin: 0 0 var(--s-2); letter-spacing: -0.01em; }
 .panel-gate form { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-5); }
 .panel-gate .msg { margin-top: var(--s-4); text-align: left; }
 
-/* ---- Editor ---- */
+/* ---- Header ---- */
 
 .panel-head {
   display: flex;
@@ -1175,61 +1170,182 @@ input[type="range"] {
 .panel-head h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.02em; }
 .panel-sub { margin: var(--s-1) 0 0; font-size: 13px; color: var(--ink-3); }
 
-.link-rows { display: flex; flex-direction: column; gap: var(--s-2); margin: var(--s-4) 0; }
+/* ---- Tabs ---- */
 
+.tabbar {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: var(--s-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+}
+.tabbar-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: calc(var(--r-md) - 4px);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tabbar-btn:hover { color: var(--ink); }
+.tabbar-btn[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- Forms ---- */
+
+.form-stack { display: flex; flex-direction: column; gap: var(--s-5); }
+.form-stack .btn { align-self: flex-start; }
+
+/* The /go/ prefix sits inside the field rather than beside it, so the name
+   reads as the path segment it becomes. */
+.prefixed {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+.prefixed:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.prefixed-tag {
+  display: flex;
+  align-items: center;
+  padding: 0 2px 0 11px;
+  font-size: 13px;
+  color: var(--ink-3);
+  user-select: none;
+}
+.prefixed input {
+  flex: 1;
+  min-width: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  font-family: var(--mono);
+  font-size: 13px;
+  padding-left: 0;
+}
+
+/* ---- Generated code ---- */
+
+.result {
+  display: flex;
+  gap: var(--s-6);
+  align-items: flex-start;
+  margin-top: var(--s-6);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--line);
+}
+.result-code {
+  flex: none;
+  width: 168px;
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #fff;
+}
+.result-code svg { display: block; width: 100%; height: auto; }
+.qr-skeleton {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, #ececec 25%, #f6f6f6 37%, #ececec 63%);
+  background-size: 400% 100%;
+  animation: qr-shimmer 1.3s ease infinite;
+}
+@keyframes qr-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+.result-body { flex: 1; min-width: 0; }
+/* The pill is two words and must never wrap into a two-line lozenge. */
+.result-body .pill, .found-head .pill { white-space: nowrap; }
+.result-target {
+  margin: var(--s-3) 0 var(--s-1);
+  font-size: 12.5px;
+  color: var(--ink);
+  word-break: break-all;
+}
+.result-dest { margin: 0 0 var(--s-4); font-size: 12.5px; color: var(--ink-3); word-break: break-all; }
+.result-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+
+/* ---- Scanned code ---- */
+
+.found {
+  margin-top: var(--s-5);
+  padding: var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+}
+.found .field + .field { margin-top: var(--s-4); }
+.found > .btn { margin-top: var(--s-5); }
+
+.found-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.found-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.found-head .btn { margin-left: auto; }
+
+.found-current {
+  margin: var(--s-1) 0 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+.found-foreign .found-current { color: var(--ink); }
+.found-foreign .field-hint { margin-top: var(--s-3); }
+
+/* ---- The list ---- */
+
+.known { margin-top: var(--s-8); }
+.known-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-3);
+}
+
+.link-rows { display: flex; flex-direction: column; gap: var(--s-2); }
 .link-row {
   padding: var(--s-3);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface-inset);
-  transition: border-color 0.12s ease;
 }
-.link-row.has-problem { border-color: var(--bad-line); }
 
-.link-row-main { display: flex; gap: var(--s-2); align-items: center; }
-/* The /go/ prefix is shown rather than explained — it is the part that gets
-   printed, and seeing it attached to the name makes that obvious. */
-.lr-prefix { flex: none; font-size: 12px; color: var(--ink-3); user-select: none; }
-.link-row-main .lr-key { flex: 0 0 26%; min-width: 84px; font-family: var(--mono); font-size: 13px; }
-.link-row-main .lr-url { flex: 1; min-width: 0; }
-
-.link-row-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--s-3);
-  margin-top: var(--s-2);
-  padding-left: 2px;
+.known-row { display: flex; align-items: center; gap: var(--s-4); }
+.known-main { flex: 1; min-width: 0; }
+.known-key { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.known-url {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.link-row-meta:empty { display: none; }
-
-.lr-note { font-size: 11.5px; color: var(--warn); }
-.lr-problem { font-size: 11.5px; color: var(--bad); }
-.lr-hits { font-size: 11.5px; color: var(--ink-3); }
-
-/* A text button, not a filled one — it is a shortcut, not the main action. */
-.lr-qr {
-  margin-left: auto;
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-size: 11.5px;
-  color: var(--accent);
-  cursor: pointer;
-}
-.lr-qr:hover { text-decoration: underline; }
-
-.editor-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  margin-top: var(--s-4);
-}
-.editor-actions-end { margin-left: auto; display: flex; align-items: center; gap: var(--s-2); }
+.known-side { flex: none; display: flex; align-items: center; gap: var(--s-2); }
+.lr-hits { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
 
 .editor-foot {
-  margin-top: var(--s-6);
+  margin-top: var(--s-8);
   padding-top: var(--s-4);
   border-top: 1px solid var(--line);
   font-size: 12px;
@@ -1238,12 +1354,12 @@ input[type="range"] {
 }
 
 @media (max-width: 560px) {
-  /* Two inputs side by side stop being usable well before this width. */
-  .link-row-main { flex-wrap: wrap; }
-  .lr-prefix { order: -1; }
-  .link-row-main .lr-key { flex: 1 1 auto; }
-  .link-row-main .lr-url { flex: 1 1 100%; }
-  .lr-qr { margin-left: 0; }
+  .result { flex-direction: column; align-items: stretch; }
+  .result-code { width: 148px; align-self: center; }
+  .result-body { text-align: center; }
+  .result-actions { justify-content: center; }
+  .known-row { flex-wrap: wrap; }
+  .known-side { width: 100%; justify-content: flex-end; }
   .panel-gate { margin-top: 6vh; }
 }
 

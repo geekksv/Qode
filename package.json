@@ -7,9 +7,13 @@
   "scripts": {
     "build": "node scripts/build.js",
     "dev": "node scripts/build.js",
-    "db:init": "node scripts/db-init.js"
+    "db:init": "node scripts/db-init.js",
+    "vendor": "node -e \"require('fs').copyFileSync('node_modules/jsqr/dist/jsQR.js','web/js/vendor/jsqr.js')\""
   },
   "dependencies": {
     "@libsql/client": "^0.15.15"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0"
   }
 }
