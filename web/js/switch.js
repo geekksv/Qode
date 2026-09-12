@@ -162,6 +162,12 @@
     return null;
   }
 
+  var SHORTENERS = ["bit.ly", "bitly.com", "j.mp", "tinyurl.com", "t.co", "goo.gl",
+    "ow.ly", "buff.ly", "is.gd", "v.gd", "cutt.ly", "rebrand.ly", "shorturl.at", "rb.gy",
+    "tiny.cc", "shorte.st", "adf.ly", "bc.vc", "t.ly", "s.id", "short.io", "kutt.it",
+    "clck.ru", "vk.cc", "qr.ae", "lnkd.in", "trib.al", "dlvr.it", "ift.tt", "tr.im",
+    "chilp.it", "soo.gd", "surl.li", "gg.gg", "urlz.fr", "1url.com", "shrtco.de"];
+
   function urlProblem(url) {
     if (!url) return "Give it a destination.";
     var u;
@@ -173,6 +179,17 @@
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) return "Use a domain name rather than a bare IP address.";
     if (h === window.location.hostname && /^\/(go|r)(\/|$)/.test(u.pathname)) {
       return "That points back at this site's redirector, which would just loop.";
+    }
+    // Chaining through another shortener hides where people actually end up,
+    // from this site's checks and from the visitor alike. The server refuses
+    // it too; this is only so the answer arrives before the button is pressed.
+    var root = h.split(".").slice(-2).join(".");
+    if (SHORTENERS.indexOf(h) !== -1 || SHORTENERS.indexOf(root) !== -1) {
+      return "That's another link shortener. Point the code at the real page instead.";
+    }
+    if (h.split(".").some(function (label) { return label.indexOf("xn--") === 0; })) {
+      return "Internationalised domain names aren't accepted, because they can be made to look " +
+        "like other sites.";
     }
     return null;
   }

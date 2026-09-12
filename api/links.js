@@ -20,6 +20,7 @@ const {
   newEditToken, hashToken, tokenMatches, isAdmin,
   clientIp, ipKey, selfHost, bearer, json,
 } = require("./_db.js");
+const { destinationProblem } = require("./_safety.js");
 
 // Strict, and per IP per rolling 24 hours. This is the main brake on someone
 // filling the table, and on the site becoming a free redirect farm.
@@ -177,6 +178,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Reputation, after the cheap structural checks and before anything is
+    // written. Applied here AND on every later change: checking only at
+    // creation would let someone make a clean link, print it, and repoint it
+    // at malware the next day.
+    const danger = await destinationProblem(rawUrl);
+    if (danger) return json(res, 400, { error: danger });
+
     const url = normaliseUrl(rawUrl);
     const token = newEditToken();
     const now = Date.now();
@@ -249,6 +257,9 @@ module.exports = async function handler(req, res) {
       error: "That points back at this site's redirector, which would just loop.",
     });
   }
+
+  const dangerNow = await destinationProblem(rawUrl);
+  if (dangerNow) return json(res, 400, { error: dangerNow });
 
   const url = normaliseUrl(rawUrl);
   const now = Date.now();
