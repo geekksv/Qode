@@ -1,51 +1,65 @@
-// GET  /api/links  -> the current links (public; they are printed on paper,
-//                     so the list is not a secret)
-// POST /api/links  -> replace the whole set (requires the admin token)
+// The switchable-link API. Open to anyone, which is what shapes every
+// decision in this file.
 //
-// The write path is the only way anything in this project changes, so it
-// carries the two protections that matter: a shared secret, and a per-IP rate
-// limit that survives cold starts because it lives in the database.
-const crypto = require("crypto");
-const { db, validKey, normaliseUrl, clientIp, json } = require("./_db.js");
+//   GET    /api/links?key=x   public: where that code currently goes
+//   GET    /api/links         admin only: the whole list
+//   POST   /api/links         create one link; rate limited per IP
+//   PATCH  /api/links         change one link's destination; needs its key
+//   DELETE /api/links         remove one link; needs its key
+//
+// The previous version replaced the entire set in one call, which was safe
+// only while a single trusted person could write. Opening that up unchanged
+// would have let any visitor repoint or delete every code on the site, so
+// every operation here addresses exactly one link and has to prove it may.
+//
+// Proof is a per-link edit key, shown once at creation and stored only as a
+// hash. Deliberately NOT the printed QR code: anyone can photograph a poster,
+// so possession of the code must never be what grants control of it.
+const {
+  db, keyProblem, urlProblem, normaliseUrl, pointsAtUs,
+  newEditToken, hashToken, tokenMatches, isAdmin,
+  clientIp, ipKey, selfHost, bearer, json,
+} = require("./_db.js");
 
-// Generous for one person editing their own links, tight enough that a script
-// hammering this endpoint gets nowhere.
-const WRITE_LIMIT = 30;
-const WRITE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+// Strict, and per IP per rolling 24 hours. This is the main brake on someone
+// filling the table, and on the site becoming a free redirect farm.
+const CREATE_LIMIT = 3;
+const CREATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Brute-forcing the token is the real attack here, so failures are rationed
-// far harder than successes.
-const FAIL_LIMIT = 5;
+// Editing your own links is not the abuse vector creating them is, but it
+// still needs a ceiling so a loop cannot hammer the database.
+const EDIT_LIMIT = 60;
+const EDIT_WINDOW_MS = 60 * 60 * 1000;
+
+// Guessing an edit key is the attack that would let someone take over a
+// printed code, so failures are rationed hard.
+const FAIL_LIMIT = 10;
 const FAIL_WINDOW_MS = 15 * 60 * 1000;
 
-const MAX_LINKS = 500;
-
-// Length-independent comparison. A plain === leaks the token a character at a
-// time through response timing.
-function tokenOk(supplied) {
-  const expected = process.env.QODE_ADMIN_TOKEN || "";
-  if (!expected) return false;
-  const a = Buffer.from(String(supplied || ""), "utf8");
-  const b = Buffer.from(expected, "utf8");
-  // timingSafeEqual throws on length mismatch, so hash both to a fixed width
-  // first and compare that instead.
-  const ha = crypto.createHash("sha256").update(a).digest();
-  const hb = crypto.createHash("sha256").update(b).digest();
-  return crypto.timingSafeEqual(ha, hb);
-}
-
-async function underLimit(c, ip, tag, limit, windowMs) {
+async function countWithin(c, tag, ip, windowMs) {
   const since = Date.now() - windowMs;
-  await c.execute({ sql: "DELETE FROM writes WHERE at < ?", args: [Date.now() - 24 * 60 * 60 * 1000] });
   const r = await c.execute({
     sql: "SELECT COUNT(*) AS n FROM writes WHERE ip = ? AND at >= ?",
     args: [tag + ":" + ip, since],
   });
-  return Number(r.rows[0].n) < limit;
+  return Number(r.rows[0].n);
 }
 
-async function note(c, ip, tag) {
-  await c.execute({ sql: "INSERT INTO writes (ip, at) VALUES (?, ?)", args: [tag + ":" + ip, Date.now()] });
+async function note(c, tag, ip) {
+  await c.execute({
+    sql: "INSERT INTO writes (ip, at) VALUES (?, ?)",
+    args: [tag + ":" + ip, Date.now()],
+  });
+}
+
+// Housekeeping, cheap and occasional. Anything older than the longest window
+// can never affect a decision again.
+async function sweep(c) {
+  if (Math.random() > 0.1) return;
+  await c.execute({
+    sql: "DELETE FROM writes WHERE at < ?",
+    args: [Date.now() - CREATE_WINDOW_MS - 60000],
+  });
 }
 
 async function readBody(req) {
@@ -54,62 +68,77 @@ async function readBody(req) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 512 * 1024) throw new Error("body too large");
+    if (size > 64 * 1024) throw new Error("too large");
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+function publicView(row) {
+  return {
+    key: row.key,
+    url: row.url,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+    hits: Number(row.hits),
+  };
+}
+
+async function findLink(c, key) {
+  const r = await c.execute({
+    sql: "SELECT key, url, created_at, updated_at, hits, edit_hash FROM links WHERE key = ? LIMIT 1",
+    args: [key],
+  });
+  return r.rows[0] || null;
+}
+
 module.exports = async function handler(req, res) {
-  const c = db();
-  const ip = clientIp(req);
+  let c;
+  try {
+    c = db();
+  } catch (e) {
+    return json(res, 500, { error: "This site isn't configured for switchable links." });
+  }
+
+  const ip = ipKey(clientIp(req));
+  const supplied = bearer(req);
+  const admin = isAdmin(supplied);
+  const host = selfHost(req);
+
+  await sweep(c).catch(() => {});
+
+  // ---- Read --------------------------------------------------------------
 
   if (req.method === "GET") {
-    const r = await c.execute("SELECT key, url, updated_at, hits FROM links ORDER BY key");
-    return json(res, 200, {
-      links: r.rows.map((row) => ({
-        key: row.key,
-        url: row.url,
-        updatedAt: Number(row.updated_at),
-        hits: Number(row.hits),
-      })),
-    });
+    const key = String((req.query && req.query.key) || "").trim().toLowerCase();
+
+    if (key) {
+      // Public on purpose: a scan reveals the destination anyway, so refusing
+      // to show it here would protect nothing and would stop someone checking
+      // where their own printed code currently points.
+      const row = await findLink(c, key);
+      if (!row) return json(res, 404, { error: "No code by that name." });
+      return json(res, 200, { link: publicView(row) });
+    }
+
+    // The full list is not public. Nothing in it is secret individually, but
+    // handing over every key at once is an invitation to enumerate and probe.
+    if (!admin) {
+      return json(res, 403, { error: "Ask for one code at a time, by name." });
+    }
+    const all = await c.execute(
+      "SELECT key, url, created_at, updated_at, hits, edit_hash FROM links ORDER BY created_at DESC"
+    );
+    return json(res, 200, { links: all.rows.map(publicView) });
   }
 
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "GET, POST");
-    return json(res, 405, { error: "Use GET to read or POST to save." });
+  const method = req.method;
+  if (method !== "POST" && method !== "PATCH" && method !== "DELETE") {
+    res.setHeader("Allow", "GET, POST, PATCH, DELETE");
+    return json(res, 405, { error: "Unsupported method." });
   }
 
-  // ---- Auth -------------------------------------------------------------
-  if (!process.env.QODE_ADMIN_TOKEN) {
-    return json(res, 500, {
-      error: "This site has no admin token configured, so saving is disabled.",
-    });
-  }
-
-  if (!(await underLimit(c, ip, "fail", FAIL_LIMIT, FAIL_WINDOW_MS))) {
-    return json(res, 429, {
-      error: "Too many failed attempts. Try again in fifteen minutes.",
-    });
-  }
-
-  const header = req.headers["authorization"] || "";
-  const supplied = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!tokenOk(supplied)) {
-    await note(c, ip, "fail");
-    return json(res, 401, { error: "That password isn't right." });
-  }
-
-  // ---- Rate limit -------------------------------------------------------
-  if (!(await underLimit(c, ip, "write", WRITE_LIMIT, WRITE_WINDOW_MS))) {
-    return json(res, 429, {
-      error: "That's " + WRITE_LIMIT + " saves in an hour. Give it a few minutes.",
-    });
-  }
-
-  // ---- Validate ---------------------------------------------------------
   let body;
   try {
     body = await readBody(req);
@@ -117,66 +146,118 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { error: "Couldn't read that request." });
   }
 
-  const incoming = body && body.links;
-  if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
-    return json(res, 400, { error: "Expected a links object." });
-  }
+  // ---- Create ------------------------------------------------------------
 
-  const keys = Object.keys(incoming);
-  if (keys.length > MAX_LINKS) {
-    return json(res, 400, { error: "That's more than " + MAX_LINKS + " links." });
-  }
+  if (method === "POST") {
+    // The owner is not rationed on their own site.
+    if (!admin) {
+      const used = await countWithin(c, "create", ip, CREATE_WINDOW_MS);
+      if (used >= CREATE_LIMIT) {
+        return json(res, 429, {
+          error:
+            "That's " + CREATE_LIMIT + " codes from this connection today, which is the limit. " +
+            "Try again tomorrow — codes you have already made keep working, and you can still " +
+            "change where they point.",
+          limit: CREATE_LIMIT,
+          used: used,
+        });
+      }
+    }
 
-  const clean = {};
-  for (const rawKey of keys) {
-    const key = rawKey.trim().toLowerCase();
-    if (!validKey(key)) {
+    const rawKey = String(body.key || "").trim().toLowerCase();
+    const kp = keyProblem(rawKey);
+    if (kp) return json(res, 400, { error: kp });
+
+    const rawUrl = String(body.url || "").trim();
+    const up = urlProblem(rawUrl);
+    if (up) return json(res, 400, { error: up });
+    if (pointsAtUs(rawUrl, host)) {
       return json(res, 400, {
-        error: '"' + rawKey + '" isn\'t usable as a name. Lowercase letters, digits and hyphens only.',
+        error: "That points back at this site's redirector, which would just loop.",
       });
     }
-    const url = normaliseUrl(incoming[rawKey]);
-    if (!url) {
-      return json(res, 400, {
-        error: '"' + key + '" needs a full http or https address.',
+
+    const url = normaliseUrl(rawUrl);
+    const token = newEditToken();
+    const now = Date.now();
+
+    try {
+      await c.execute({
+        sql:
+          "INSERT INTO links (key, url, created_at, updated_at, hits, edit_hash, creator_ip) " +
+          "VALUES (?, ?, ?, ?, 0, ?, ?)",
+        args: [rawKey, url, now, now, hashToken(token), ip],
       });
+    } catch (e) {
+      // The primary key is the race-safe check; testing first and inserting
+      // second would leave a window where two people both think they won.
+      if (/UNIQUE|constraint/i.test(e.message || "")) {
+        return json(res, 409, { error: '"' + rawKey + '" is already taken. Try another name.' });
+      }
+      throw e;
     }
-    clean[key] = url;
-  }
 
-  // ---- Apply ------------------------------------------------------------
-  const existing = await c.execute("SELECT key FROM links");
-  const had = new Set(existing.rows.map((r) => r.key));
-  const now = Date.now();
+    if (!admin) await note(c, "create", ip);
 
-  const statements = [];
-  for (const [key, url] of Object.entries(clean)) {
-    statements.push({
-      sql:
-        "INSERT INTO links (key, url, created_at, updated_at) VALUES (?, ?, ?, ?) " +
-        "ON CONFLICT(key) DO UPDATE SET url = excluded.url, updated_at = excluded.updated_at",
-      args: [key, url, now, now],
+    const used = await countWithin(c, "create", ip, CREATE_WINDOW_MS);
+    return json(res, 201, {
+      link: { key: rawKey, url: url, createdAt: now, updatedAt: now, hits: 0 },
+      // Shown exactly once. Only the hash is kept, so it cannot be re-issued.
+      editToken: token,
+      remaining: admin ? null : Math.max(0, CREATE_LIMIT - used),
     });
   }
-  for (const key of had) {
-    if (!Object.prototype.hasOwnProperty.call(clean, key)) {
-      statements.push({ sql: "DELETE FROM links WHERE key = ?", args: [key] });
+
+  // ---- Change and delete -------------------------------------------------
+
+  const key = String(body.key || "").trim().toLowerCase();
+  if (!key) return json(res, 400, { error: "Which code?" });
+
+  const row = await findLink(c, key);
+  if (!row) return json(res, 404, { error: "No code by that name." });
+
+  if (!admin) {
+    const fails = await countWithin(c, "fail", ip, FAIL_WINDOW_MS);
+    if (fails >= FAIL_LIMIT) {
+      return json(res, 429, { error: "Too many wrong keys. Try again in fifteen minutes." });
+    }
+    if (!tokenMatches(body.editToken, row.edit_hash)) {
+      await note(c, "fail", ip);
+      // Deliberately the same answer whether the code exists or the key is
+      // wrong, so this cannot be used to probe which names are taken.
+      return json(res, 403, {
+        error: "That edit key doesn't match this code.",
+      });
+    }
+    const edits = await countWithin(c, "edit", ip, EDIT_WINDOW_MS);
+    if (edits >= EDIT_LIMIT) {
+      return json(res, 429, { error: "Too many changes in an hour. Give it a few minutes." });
     }
   }
 
-  // One transaction: a half-applied save would leave some printed codes
-  // pointing at the old destination and some at the new one.
-  if (statements.length) await c.batch(statements, "write");
-  await note(c, ip, "write");
+  if (method === "DELETE") {
+    await c.execute({ sql: "DELETE FROM links WHERE key = ?", args: [key] });
+    if (!admin) await note(c, "edit", ip);
+    return json(res, 200, { deleted: true, key: key });
+  }
 
-  const after = await c.execute("SELECT key, url, updated_at, hits FROM links ORDER BY key");
-  return json(res, 200, {
-    saved: true,
-    links: after.rows.map((row) => ({
-      key: row.key,
-      url: row.url,
-      updatedAt: Number(row.updated_at),
-      hits: Number(row.hits),
-    })),
+  const rawUrl = String(body.url || "").trim();
+  const up = urlProblem(rawUrl);
+  if (up) return json(res, 400, { error: up });
+  if (pointsAtUs(rawUrl, host)) {
+    return json(res, 400, {
+      error: "That points back at this site's redirector, which would just loop.",
+    });
+  }
+
+  const url = normaliseUrl(rawUrl);
+  const now = Date.now();
+  await c.execute({
+    sql: "UPDATE links SET url = ?, updated_at = ? WHERE key = ?",
+    args: [url, now, key],
   });
+  if (!admin) await note(c, "edit", ip);
+
+  const after = await findLink(c, key);
+  return json(res, 200, { link: publicView(after) });
 };

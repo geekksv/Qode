@@ -102,11 +102,28 @@ The lookup is a serverless function against [Turso](https://turso.tech)
 `301`, because a permanent redirect gets cached by browsers and proxies —
 which would defeat the entire point of being switchable.
 
-Writing is protected by `QODE_ADMIN_TOKEN` and rate limited per IP: five
-failed sign-ins per fifteen minutes, thirty saves per hour. Both counters
-live in the database rather than in memory, so they survive the cold starts
-that serverless functions are made of. Reading is public — these
-destinations are printed on posters; they were never secret.
+**Anyone can make one**, three per IP per rolling 24 hours. Changing where
+your existing codes point is not rationed — only creating new ones.
+
+The security question that shapes the whole design: *what proves a code is
+yours?* Not possession of the printed code — anyone can photograph a poster
+on a wall. So each code gets an **edit key**, shown once at creation and
+stored only as a SHA-256 hash. Uploading a code lets you see where it goes;
+changing it needs the key.
+
+Everything else follows from being open to the public: names are validated
+and a reserved list blocks `admin`, `login`, `verify` and friends;
+destinations must be public http(s), never a bare IP, loopback, `.local`, a
+URL carrying credentials, or this site's own redirector; failed key guesses
+are rationed ten per fifteen minutes; and every counter lives in the
+database rather than in memory, so it survives the cold starts serverless
+functions are made of. `QODE_ADMIN_TOKEN` is the moderation override.
+
+**The risk worth naming:** a free, anonymous redirector is a phishing
+laundering vector, and the cost of getting that wrong is the whole domain
+landing on a Safe Browsing blocklist, not just this page. The limits above
+raise the cost of abuse; they do not eliminate it. If this is ever pointed
+at a real audience, add destination reputation checking.
 
 Competitors meter this. Bitly allows five destination changes a month.
 

@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Switchable Links — Qode</title>
-<meta name="description" content="Create a QR code whose destination you can change later, or upload a code you already printed and point it somewhere new." />
+<title>Switchable QR Codes — Qode</title>
+<meta name="description" content="Make a QR code whose destination you can change later, free. Print it once, then point it wherever you like — upload the code and re-aim it in seconds." />
 <link rel="canonical" href="/switch" />
-<meta name="robots" content="noindex, nofollow" />
 
 <script>
   (function () {
@@ -23,6 +22,19 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/favicon.svg" />
 
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Qode" />
+<meta property="og:title" content="Switchable QR codes, free — Qode" />
+<meta property="og:description" content="Print a code once and change where it goes, as often as you like. No account, no subscription." />
+<meta property="og:image" content="__SITE__/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Qode — free QR codes, made on your device." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Switchable QR codes, free — Qode" />
+<meta name="twitter:description" content="Print a code once and change where it goes, as often as you like. No account, no subscription." />
+<meta name="twitter:image" content="__SITE__/og.png" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -30,7 +42,7 @@
 </head>
 <body>
 
-<a class="skip-link" href="#workspace">Skip to the editor</a>
+<a class="skip-link" href="#workspace">Skip to the tool</a>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
@@ -50,9 +62,9 @@
       <circle cx="11" cy="11" r="8.5" />
       <path d="M11 10.5v5M11 7h.01" />
     </g>
-    <g id="i-lock" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="4.5" y="9.5" width="13" height="9" rx="2" />
-      <path d="M7.5 9.5V7a3.5 3.5 0 0 1 7 0v2.5" />
+    <g id="i-key" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="7.5" cy="11" r="3.5" />
+      <path d="M11 11h8M16.5 11v3M19 11v2.5" />
     </g>
     <g id="i-scan" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 8V5a2 2 0 0 1 2-2h3M14 3h3a2 2 0 0 1 2 2v3M19 14v3a2 2 0 0 1-2 2h-3M8 19H5a2 2 0 0 1-2-2v-3" />
@@ -91,181 +103,243 @@
   </div>
 </header>
 
-<main class="shell shell-narrow">
+<main class="shell shell-narrow" id="workspace">
 
-  <!-- Sign in. Shown until a token is accepted; everything else stays behind
-       it, because without a password anyone could repoint every code this
-       site has ever printed. -->
-  <section class="panel panel-gate" id="gate" hidden aria-labelledby="gate-title">
-    <svg class="gate-icon" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-lock" /></svg>
-    <h1 id="gate-title">Sign in</h1>
-    <p class="panel-sub">These codes are already printed. Only you should be able to move them.</p>
-    <form id="gate-form" autocomplete="off">
-      <input type="password" id="gate-token" placeholder="Admin password"
-             aria-label="Admin password" autocomplete="current-password" spellcheck="false" />
-      <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Unlock</button>
-    </form>
-    <div class="msg bad" id="gate-error" role="status" hidden>
-      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
-      <span></span>
+  <div class="panel-head">
+    <div>
+      <h1>Switchable codes</h1>
+      <p class="panel-sub">
+        Print a code once and change where it goes afterwards — as often as you like, free.
+      </p>
     </div>
-  </section>
+  </div>
 
-  <div id="workspace" hidden>
+  <div class="tabbar" role="tablist" aria-label="What do you want to do?">
+    <button class="tabbar-btn" type="button" role="tab" id="tab-create"
+            aria-controls="panel-create" aria-selected="true" tabindex="0">
+      Generate a code
+    </button>
+    <button class="tabbar-btn" type="button" role="tab" id="tab-change"
+            aria-controls="panel-change" aria-selected="false" tabindex="-1">
+      Change a destination
+    </button>
+  </div>
 
-    <div class="panel-head">
-      <div>
-        <h1>Switchable links</h1>
-        <p class="panel-sub" id="live-count">&nbsp;</p>
-      </div>
-      <button class="btn btn-ghost btn-sm" type="button" id="sign-out">Sign out</button>
-    </div>
+  <!-- ====================== Generate ====================== -->
+  <section id="panel-create" role="tabpanel" aria-labelledby="tab-create" tabindex="0">
 
-    <div class="tabbar" role="tablist" aria-label="What do you want to do?">
-      <button class="tabbar-btn" type="button" role="tab" id="tab-create"
-              aria-controls="panel-create" aria-selected="true" tabindex="0">
-        Generate a code
-      </button>
-      <button class="tabbar-btn" type="button" role="tab" id="tab-change"
-              aria-controls="panel-change" aria-selected="false" tabindex="-1">
-        Change a destination
-      </button>
-    </div>
-
-    <!-- ====================== Generate ====================== -->
-    <section id="panel-create" role="tabpanel" aria-labelledby="tab-create" tabindex="0">
-
-      <div class="form-stack">
-        <div class="field">
-          <label class="field-label" for="new-key">Name</label>
-          <div class="prefixed">
-            <span class="prefixed-tag mono" aria-hidden="true">/go/</span>
-            <input type="text" id="new-key" placeholder="poster" spellcheck="false"
-                   autocapitalize="off" autocomplete="off" />
-          </div>
-          <p class="field-hint">
-            This is the part printed into the code, so it can never change afterwards.
-            Lowercase letters, digits and hyphens.
-          </p>
+    <div class="form-stack">
+      <div class="field">
+        <label class="field-label" for="new-key">Name</label>
+        <div class="prefixed">
+          <span class="prefixed-tag mono" aria-hidden="true">/go/</span>
+          <input type="text" id="new-key" placeholder="my-poster" spellcheck="false"
+                 autocapitalize="off" autocomplete="off" maxlength="40" />
         </div>
-
-        <div class="field">
-          <label class="field-label" for="new-url">Destination</label>
-          <input type="url" id="new-url" placeholder="https://example.com" spellcheck="false" />
-          <p class="field-hint">Where it goes today. This is the part you come back and change.</p>
-        </div>
-
-        <div class="msg bad" id="create-error" role="status" hidden>
-          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
-          <span></span>
-        </div>
-
-        <button class="btn btn-primary" type="button" id="create-btn" disabled>Generate code</button>
-      </div>
-
-      <!-- Result: the code itself, ready to download. -->
-      <div class="result" id="create-result" hidden>
-        <div class="result-code">
-          <div id="create-stage" aria-live="polite"></div>
-        </div>
-        <div class="result-body">
-          <span class="pill ok"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>Live now</span>
-          <p class="result-target mono" id="create-target"></p>
-          <p class="result-dest" id="create-dest"></p>
-          <div class="result-actions">
-            <button class="btn btn-primary btn-sm" type="button" id="dl-png">
-              <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-download" /></svg>PNG
-            </button>
-            <button class="btn btn-secondary btn-sm" type="button" id="dl-svg">SVG</button>
-            <button class="btn btn-ghost btn-sm" type="button" id="open-studio">Style it in the Studio</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ====================== Change ====================== -->
-    <section id="panel-change" role="tabpanel" aria-labelledby="tab-change" tabindex="0" hidden>
-
-      <div class="dropzone" id="dropzone">
-        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-scan" /></svg>
-        <h2>Drop the QR code here</h2>
-        <p>
-          A photo of the printed code, or the image you exported. It is read in this tab —
-          the picture is never uploaded anywhere.
+        <p class="field-hint">
+          This is the part printed into the code, so it can never change afterwards.
+          Three to forty characters: lowercase letters, digits and hyphens.
         </p>
-        <button class="btn btn-secondary" type="button" id="browse-btn">Choose an image</button>
-        <input type="file" id="qr-file" accept="image/*" hidden />
       </div>
 
-      <div class="msg bad" id="scan-error" role="status" hidden>
+      <div class="field">
+        <label class="field-label" for="new-url">Destination</label>
+        <input type="url" id="new-url" placeholder="https://example.com" spellcheck="false" />
+        <p class="field-hint">Where it goes today. This is the part you come back and change.</p>
+      </div>
+
+      <div class="msg bad" id="create-error" role="status" hidden>
         <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
         <span></span>
       </div>
 
-      <!-- One of ours: editable. -->
-      <div class="found" id="found" hidden>
-        <div class="found-head">
-          <span class="pill ok">Switchable</span>
-          <span class="found-name mono" id="found-name"></span>
-          <button class="btn btn-ghost btn-sm" type="button" id="scan-again">Scan another</button>
-        </div>
-
-        <div class="field">
-          <span class="field-label">Currently goes to</span>
-          <p class="found-current mono" id="found-current"></p>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="found-url">Change it to</label>
-          <input type="url" id="found-url" placeholder="https://example.com" spellcheck="false" />
-          <p class="field-hint">
-            Saving takes effect on the next scan. The printed code itself is never touched.
-          </p>
-        </div>
-
-        <div class="msg bad" id="found-error" role="status" hidden>
-          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
-          <span></span>
-        </div>
-
-        <button class="btn btn-primary" type="button" id="found-save" disabled>Save new destination</button>
+      <div class="create-row">
+        <button class="btn btn-primary" type="button" id="create-btn" disabled>Generate code</button>
+        <span class="quota" id="quota"></span>
       </div>
+    </div>
 
-      <!-- A real code, but not one of ours. Explained rather than refused. -->
-      <div class="found found-foreign" id="foreign" hidden>
-        <div class="found-head">
-          <span class="pill" id="foreign-pill">Not switchable</span>
-          <button class="btn btn-ghost btn-sm" type="button" id="foreign-again">Scan another</button>
-        </div>
-        <p class="found-current mono" id="foreign-content"></p>
-        <p class="field-hint" id="foreign-why"></p>
-        <div class="result-actions" id="foreign-actions" hidden>
-          <button class="btn btn-secondary btn-sm" type="button" id="foreign-create">Create this name</button>
+    <!-- Result: the code, and the one-time edit key. -->
+    <div class="result" id="create-result" hidden>
+      <div class="result-code">
+        <div id="create-stage" aria-live="polite"></div>
+      </div>
+      <div class="result-body">
+        <span class="pill ok"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>Live now</span>
+        <p class="result-target mono" id="create-target"></p>
+        <p class="result-dest" id="create-dest"></p>
+        <div class="result-actions">
+          <button class="btn btn-primary btn-sm" type="button" id="dl-png">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-download" /></svg>PNG
+          </button>
+          <button class="btn btn-secondary btn-sm" type="button" id="dl-svg">SVG</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="open-studio">Style it in the Studio</button>
         </div>
       </div>
+    </div>
 
-      <!-- The list, for when the printed code is not to hand. -->
-      <div class="known" id="known">
-        <h2 class="known-title">Or pick one of yours</h2>
-        <div class="link-rows" id="link-rows"></div>
-        <p class="field-hint" id="known-empty" hidden>
-          Nothing yet. Generate your first code in the other tab.
-        </p>
+    <!-- The edit key. The single most important thing on the page: it is
+         shown once and cannot be recovered. -->
+    <div class="keybox" id="keybox" hidden>
+      <div class="keybox-head">
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-key" /></svg>
+        <h2>Save your edit key</h2>
       </div>
-    </section>
+      <p class="keybox-why">
+        This is the only thing that proves the code is yours. You need it to change where the code
+        goes later. <strong>It is shown once and cannot be recovered</strong> — not by us either, because
+        only a hash of it is stored. Anyone who has it can re-aim your code, so keep it somewhere safe.
+      </p>
+      <div class="keybox-row">
+        <code class="keybox-token mono" id="edit-token"></code>
+        <button class="btn btn-primary btn-sm" type="button" id="copy-token">Copy</button>
+      </div>
+      <label class="keybox-ack">
+        <input type="checkbox" id="ack-key" />
+        <span>I've saved it</span>
+      </label>
+    </div>
+  </section>
 
-    <div class="msg" id="status" role="status" aria-live="polite" hidden>
-      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+  <!-- ====================== Change ====================== -->
+  <section id="panel-change" role="tabpanel" aria-labelledby="tab-change" tabindex="0" hidden>
+
+    <div class="dropzone" id="dropzone">
+      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-scan" /></svg>
+      <h2>Drop the QR code here</h2>
+      <p>
+        A photo of the printed code, or the image you exported. It is read in this tab —
+        the picture is never uploaded anywhere.
+      </p>
+      <button class="btn btn-secondary" type="button" id="browse-btn">Choose an image</button>
+      <input type="file" id="qr-file" accept="image/*" hidden />
+      <p class="dropzone-or">or <button class="linkish" type="button" id="by-name">enter the name instead</button></p>
+    </div>
+
+    <div class="msg bad" id="scan-error" role="status" hidden>
+      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
       <span></span>
     </div>
 
-    <p class="editor-foot">
-      A switchable code points at this site, which forwards it on — that indirection is exactly
-      what lets you move it later, and it means these codes stop working if this site does. The
-      other sixteen content types carry their destination inside them and depend on nothing.
-    </p>
+    <!-- Look a code up by name, for when the image isn't to hand. -->
+    <div class="form-stack" id="name-lookup" hidden>
+      <div class="field">
+        <label class="field-label" for="lookup-key">Code name</label>
+        <div class="prefixed">
+          <span class="prefixed-tag mono" aria-hidden="true">/go/</span>
+          <input type="text" id="lookup-key" placeholder="my-poster" spellcheck="false"
+                 autocapitalize="off" autocomplete="off" maxlength="40" />
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-primary btn-sm" type="button" id="lookup-btn">Find it</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="lookup-cancel">Back</button>
+      </div>
+    </div>
+
+    <!-- One of ours: editable, once the edit key checks out. -->
+    <div class="found" id="found" hidden>
+      <div class="found-head">
+        <span class="pill ok">Switchable</span>
+        <span class="found-name mono" id="found-name"></span>
+        <button class="btn btn-ghost btn-sm" type="button" id="scan-again">Start over</button>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Currently goes to</span>
+        <p class="found-current mono" id="found-current"></p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="found-token">Edit key</label>
+        <input type="password" id="found-token" placeholder="The key you saved when you made it"
+               spellcheck="false" autocomplete="off" />
+        <p class="field-hint" id="token-hint">
+          Photographing a code doesn't make it yours, so the key is what proves it. Lost it and the
+          destination is fixed for good — the code keeps working, it just can't be re-aimed.
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="found-url">Change it to</label>
+        <input type="url" id="found-url" placeholder="https://example.com" spellcheck="false" />
+        <p class="field-hint">Takes effect on the next scan. The printed code itself is never touched.</p>
+      </div>
+
+      <div class="msg bad" id="found-error" role="status" hidden>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+        <span></span>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn btn-primary" type="button" id="found-save" disabled>Save new destination</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="found-delete">Delete this code</button>
+      </div>
+    </div>
+
+    <!-- A real code, but not one of ours. Explained rather than refused. -->
+    <div class="found found-foreign" id="foreign" hidden>
+      <div class="found-head">
+        <span class="pill" id="foreign-pill">Not switchable</span>
+        <button class="btn btn-ghost btn-sm" type="button" id="foreign-again">Start over</button>
+      </div>
+      <p class="found-current mono" id="foreign-content"></p>
+      <p class="field-hint" id="foreign-why"></p>
+      <div class="result-actions" id="foreign-actions" hidden>
+        <button class="btn btn-secondary btn-sm" type="button" id="foreign-create">Create this name</button>
+      </div>
+    </div>
+
+    <!-- Codes made in this browser. A convenience, not a login. -->
+    <div class="known" id="known" hidden>
+      <h2 class="known-title">Made in this browser</h2>
+      <div class="link-rows" id="link-rows"></div>
+      <p class="field-hint">
+        Remembered on this device only, so you can find them again. Clearing your browser data
+        forgets them — which is exactly why the edit key is worth saving somewhere else.
+      </p>
+    </div>
+  </section>
+
+  <div class="msg" id="status" role="status" aria-live="polite" hidden>
+    <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+    <span></span>
+  </div>
+
+  <div class="facts">
+    <div>
+      <h3>Three a day</h3>
+      <p>
+        Each connection can make three codes a day. Changing where your existing codes point is not
+        rationed — only making new ones.
+      </p>
+    </div>
+    <div>
+      <h3>The name is permanent</h3>
+      <p>
+        It is the part physically on the paper. The destination behind it is yours to change forever.
+      </p>
+    </div>
+    <div>
+      <h3>These need this site</h3>
+      <p>
+        A switchable code points here, and this site forwards it on. That indirection is what lets you
+        move it — and it means these codes stop working if this site does. Qode's other sixteen
+        content types carry their destination inside them and depend on nothing.
+      </p>
+    </div>
   </div>
 </main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>Qode — free, forever. No account, no subscription, and no limit on how often you re-aim a code.</p>
+    <div class="footer-meta">
+      <span><span class="tick" aria-hidden="true">✓</span> Unlimited changes</span>
+      <span><span class="tick" aria-hidden="true">✓</span> Read in your browser</span>
+    </div>
+  </div>
+</footer>
 
 <script src="/js/wasm_exec.js"></script>
 <script src="/js/app.js"></script>
