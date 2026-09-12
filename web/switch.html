@@ -4,8 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Switchable Links — Qode</title>
-<meta name="description" content="Repoint a printed QR code at a different URL without reprinting it. One file, no database, no subscription, and no limit on how often you change it." />
+<meta name="description" content="Repoint a printed QR code at a different URL without reprinting it. Change the destination, press save, done." />
 <link rel="canonical" href="/switch" />
+<meta name="robots" content="noindex, nofollow" />
 
 <script>
   (function () {
@@ -21,19 +22,6 @@
 <meta name="theme-color" content="#08090a" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/favicon.svg" />
-
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="Qode" />
-<meta property="og:title" content="Switchable QR codes, without a database — Qode" />
-<meta property="og:description" content="Change where a printed code points, as often as you like. Competitors ration this; here it is one file you own." />
-<meta property="og:image" content="__SITE__/og.png" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Qode — free QR codes, made on your device." />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Switchable QR codes, without a database — Qode" />
-<meta name="twitter:description" content="Change where a printed code points, as often as you like. Competitors ration this; here it is one file you own." />
-<meta name="twitter:image" content="__SITE__/og.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -65,6 +53,10 @@
       <circle cx="11" cy="11" r="8.5" />
       <path d="M11 10.5v5M11 7h.01" />
     </g>
+    <g id="i-lock" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4.5" y="9.5" width="13" height="9" rx="2" />
+      <path d="M7.5 9.5V7a3.5 3.5 0 0 1 7 0v2.5" />
+    </g>
   </defs>
 </svg>
 
@@ -88,137 +80,60 @@
   </div>
 </header>
 
-<main class="shell">
+<main class="shell shell-narrow">
 
-  <section class="hero">
-    <span class="hero-tag"><span class="pulse"></span>Unlimited switches · One file · No database</span>
-    <h1>Change where a printed code goes.<br /><span class="muted">As often as you like.</span></h1>
-    <p>
-      Give a code a short name, and it becomes a permanent address at
-      <code>/go/&lt;name&gt;</code>. The name is the part that gets printed; the destination behind it
-      is yours to change whenever you want. Bitly rations this to five changes a month — here it is
-      one line in one file.
-    </p>
+  <!-- Sign in. Shown until a token is accepted; the editor stays hidden
+       behind it, because without a password anyone could repoint every code
+       this site has ever printed. -->
+  <section class="panel panel-gate" id="gate" hidden aria-labelledby="gate-title">
+    <svg class="gate-icon" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-lock" /></svg>
+    <h1 id="gate-title">Sign in to edit links</h1>
+    <p class="panel-sub">These codes are already printed. Only you should be able to move them.</p>
+    <form id="gate-form" autocomplete="off">
+      <input type="password" id="gate-token" placeholder="Admin password"
+             aria-label="Admin password" autocomplete="current-password" spellcheck="false" />
+      <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Unlock</button>
+    </form>
+    <div class="msg bad" id="gate-error" role="status" hidden>
+      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+      <span></span>
+    </div>
   </section>
 
-  <!-- The distinction that trips everyone up, stated before anyone can get it
-       wrong rather than after they have printed something. -->
-  <aside class="note" style="margin-top:0;margin-bottom:var(--s-10);">
-    <div>
-      <h2>Which one do you want?</h2>
-      <p>
-        <strong>Switchable</strong> — the code opens a <em>different URL</em> whenever you decide.
-        Use it when the destination itself may move.
-      </p>
-      <p>
-        <strong><a href="/wizard">Dynamic Link</a></strong> — the code always opens the same page,
-        and you edit what is <em>on</em> that page. It scans slightly faster and keeps working even
-        if this site disappears. Prefer it when the destination is settled.
-      </p>
-    </div>
-  </aside>
+  <!-- The editor. Deliberately bare: a title, the rows, one save button. -->
+  <section id="links-editor" hidden>
 
-  <div class="steps" id="links-editor">
-
-    <section class="step" data-state="active" aria-labelledby="sw-1">
-      <span class="step-num" aria-hidden="true">01</span>
-      <div class="step-body">
-        <h2 id="sw-1">Your links</h2>
-        <p>
-          The name on the left is printed into the QR code and can never change. The address on the
-          right is what you come back and edit.
-        </p>
-
-        <div class="msg" id="links-status" role="status" aria-live="polite">
-          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
-          <span></span>
-        </div>
-
-        <div class="link-rows" id="link-rows"></div>
-
-        <p class="field-hint" id="links-empty" hidden>
-          No links yet. Add one to get started.
-        </p>
-
-        <div class="step-actions">
-          <button class="btn btn-secondary btn-sm" type="button" id="link-add">
-            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-plus" /></svg>Add a link
-          </button>
-        </div>
-
-        <div class="msg warn" id="draft-note" hidden>
-          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
-          <span>
-            You have unsaved changes. They are kept in this browser only — nothing is live until you
-            copy the file below and push it.
-            <button class="btn btn-ghost btn-sm" type="button" id="draft-discard">Discard changes</button>
-          </span>
-        </div>
+    <div class="panel-head">
+      <div>
+        <h1>Links</h1>
+        <p class="panel-sub" id="links-sub">Loading…</p>
       </div>
-    </section>
-
-    <section class="step" data-state="active" aria-labelledby="sw-2">
-      <span class="step-num" aria-hidden="true">02</span>
-      <div class="step-body">
-        <h2 id="sw-2">Save it</h2>
-        <p>
-          There is no save button here, because there is no server to save to. That is the trade
-          that makes this free and unmetered: <strong>git is the save button.</strong>
-        </p>
-
-        <pre class="json-out mono" id="json-out">{}</pre>
-
-        <div class="step-actions">
-          <button class="btn btn-primary btn-sm" type="button" id="json-copy" disabled>Copy JSON</button>
-          <button class="btn btn-secondary btn-sm" type="button" id="json-download" disabled>Download</button>
-        </div>
-
-        <ol class="instructions" style="margin-top:var(--s-5);">
-          <li><span>Copy the JSON above.</span></li>
-          <li><span>Paste it into <code>links.json</code> at the root of this project, replacing what is there.</span></li>
-          <li><span>Commit and push. Vercel rebuilds in about ten seconds.</span></li>
-          <li><span>Every printed code now goes to its new destination. Nothing is reprinted.</span></li>
-        </ol>
-
-        <p class="field-hint">
-          Editing <code>links.json</code> through github.com works from a phone, so you can repoint a
-          code from anywhere.
-        </p>
-      </div>
-    </section>
-  </div>
-
-  <aside class="note">
-    <div>
-      <h2>Worth knowing</h2>
-      <p>
-        <strong>Never rename or delete a live name.</strong> The name is the part physically on the
-        paper. Change it and every code carrying it stops working, and no amount of editing brings
-        those back — only reprinting does.
-      </p>
-      <p>
-        <strong>These codes depend on this site.</strong> They point at
-        <code>/go/&lt;name&gt;</code> here, so if this domain goes away they stop resolving. The other
-        sixteen content types carry their destination inside them and have no such dependency.
-      </p>
-      <p>
-        <strong>Only someone who can push to this project can change a destination.</strong> There is
-        no login here because there is nothing to log in to — which is also why there is nothing to
-        rate-limit, nothing to leak, and no account that can lapse.
-      </p>
+      <button class="btn btn-ghost btn-sm" type="button" id="sign-out">Sign out</button>
     </div>
-  </aside>
+
+    <div class="msg" id="status" role="status" aria-live="polite" hidden>
+      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+      <span></span>
+    </div>
+
+    <div class="link-rows" id="link-rows"></div>
+
+    <div class="editor-actions">
+      <button class="btn btn-secondary btn-sm" type="button" id="link-add">
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-plus" /></svg>Add
+      </button>
+      <div class="editor-actions-end">
+        <button class="btn btn-ghost btn-sm" type="button" id="revert" hidden>Revert</button>
+        <button class="btn btn-primary" type="button" id="save" disabled>Save</button>
+      </div>
+    </div>
+
+    <p class="editor-foot">
+      Saving takes effect immediately — every printed code goes somewhere new on the next scan.
+      The name on the left is what is physically on the paper, so never change it once a code is out.
+    </p>
+  </section>
 </main>
-
-<footer class="site-footer">
-  <div class="footer-inner">
-    <p>Qode — free, forever. One file, no database, and no account that can expire and take your printed codes with it.</p>
-    <div class="footer-meta">
-      <span><span class="tick" aria-hidden="true">✓</span> Unlimited changes</span>
-      <span><span class="tick" aria-hidden="true">✓</span> One request per scan</span>
-    </div>
-  </div>
-</footer>
 
 <script src="/js/theme.js"></script>
 <script src="/js/ui.js"></script>

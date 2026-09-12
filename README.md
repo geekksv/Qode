@@ -48,7 +48,8 @@ WebAssembly and ships as a single file.
 | **16 content types** | Link · Text · E-mail · Call · SMS · WhatsApp · Wi-Fi · V-card · Event · Location · App · Social · Image · Video · UPI Pay · Crypto |
 | **Styling** | Three module shapes, three eye shapes, gradients, colour presets, 16 built-in logos, four logo animations |
 | **Export** | True vector SVG, or PNG at 1200 px. No watermark, no limit |
-| **Dynamic links** | Change where a printed code points, without a database |
+| **Switchable links** | Repoint a printed code at a different URL, instantly, as often as you like |
+| **Dynamic links** | Point a code at a page you control and edit the page, not the code |
 | **Bulk** | CSV in, ZIP out, no row limit, parsed in the tab |
 | **Accessibility** | WCAG AA contrast, full keyboard navigation, reduced-motion support |
 
@@ -58,7 +59,7 @@ they keep working whether or not this site exists.
 
 ---
 
-## The two interesting parts
+## The interesting parts
 
 ### Encoding happens on your device
 
@@ -70,44 +71,75 @@ The studio shows this as it happens: *"Encoded in 4.00 ms by Go/WASM ·
 v4 · 33×33 · mask 2 · zero network calls"*. A server-backed generator
 cannot print that line.
 
-### Dynamic links without a database
+### Switchable links: change a printed code's destination
 
-Competitors sell "dynamic" QR codes on a subscription, because changing a
-printed code's destination requires a server that remembers it:
-
-```
-Them:   QR ──► their server ──► database lookup ──► your destination
-```
-
-Qode packs the destination into the URL *fragment* — the part after `#`,
-which browsers never transmit to any server:
+A QR code is ink. Once it is on a poster you cannot edit it — so if the
+destination has to change, the code has to point at something that can be
+redirected.
 
 ```
-https://getqode.vercel.app/r#aHR0cHM6Ly9hY21lLm5vdGlvbi5zaXRlL21lbnU
-                             └── your destination, base64url ──┘
+scan ──► getqode.vercel.app/go/poster ──► lookup ──► wherever you point it today
+             └─ this is what gets printed ─┘
 ```
 
-`/r` is a static page. Its JavaScript reads the fragment out of its own
-address bar, decodes it locally, and redirects. The server receives a
-request for `/r` and nothing more — it is structurally incapable of knowing
-where any code points.
+The **name** is printed and can never change. The **destination** behind it
+is one field in `/switch`, and saving takes effect on the next scan — no
+rebuild, no redeploy, no reprint.
+
+The lookup is a serverless function against [Turso](https://turso.tech)
+(SQLite at the edge, free tier). `/go/<key>` answers with a `302`, never a
+`301`, because a permanent redirect gets cached by browsers and proxies —
+which would defeat the entire point of being switchable.
+
+Writing is protected by `QODE_ADMIN_TOKEN` and rate limited per IP: five
+failed sign-ins per fifteen minutes, thirty saves per hour. Both counters
+live in the database rather than in memory, so they survive the cold starts
+that serverless functions are made of. Reading is public — these
+destinations are printed on posters; they were never secret.
+
+Competitors meter this. Bitly allows five destination changes a month.
+
+### Dynamic links: edit the page, not the code
+
+A different tool for a different problem, and the distinction matters
+enough that `/switch` states it before you can get it wrong.
+
+The wizard encodes **your** address directly — a published Notion page, a
+Google Doc, your own site. Nothing is wrapped, shortened or routed through
+Qode, so these codes scan straight through, stay small, and keep working
+whether or not this site exists. What you change afterwards is the *page*;
+the code is settled the moment it is printed.
+
+Use switchable when the destination may move. Use dynamic when it will not.
+
+### Encoding still happens on your device
+
+The two features above are the only parts of Qode that touch a server, and
+only `/switch` and `/go/<key>` do. Everything else — all sixteen content
+types, styling, bulk CSV, export — runs entirely in the tab.
+
+`/r` remains a static page for the App, Social and Gallery types, which
+pack their payload into the URL *fragment*:
 
 ```
-Qode:   QR ──► your destination        (decoded on the scanner's phone)
+https://getqode.vercel.app/r#s.eyJ0IjoiTXkgTGlua3MiLCJsIjpbLi4uXX0
+                             └── your links, base64url ──┘
 ```
 
-What makes the code *editable* is the second half: the wizard points it at
-a page **you** control — a published Notion page, a Google Doc, your own
-site. You edit that page; the printed code never changes.
+Browsers never transmit a fragment to any server. `/r` reads it out of its
+own address bar and decodes it locally, so the server receives a request
+for `/r` and nothing more.
 
-Only `http` and `https` are ever followed. A hand-crafted `javascript:` or
-`data:` fragment is refused with a named error.
+Only `http` and `https` are ever followed — in the fragment decoder, in the
+`/switch` validator and again in the API. A `javascript:` or `data:`
+destination is refused at every one of those three points.
 
 ---
 
 ## Running it locally
 
-No build tooling, no package manager, no install step.
+The site itself needs no build tooling. The switchable-link API needs
+`npm install` for the Turso client, and a `.env` — copy `.env.example`.
 
 ```bash
 git clone https://github.com/geekksv/Qode.git
@@ -152,11 +184,34 @@ Set these under **Project Settings → Environment Variables**:
 
 | Variable | Required | Purpose |
 |---|---|---|
+| `TURSO_DATABASE_URL` | Switchable links | `turso db show --url <name>` |
+| `TURSO_AUTH_TOKEN` | Switchable links | `turso db tokens create <name>` |
+| `QODE_ADMIN_TOKEN` | Switchable links | The password for `/switch` |
 | `IMGBB_KEY` | Image type only | [api.imgbb.com](https://api.imgbb.com) key |
 | `IMGBB_EXPIRY_SECONDS` | No | Auto-delete uploads after N seconds |
 | `SITE_URL` | No | Overrides the canonical URL; derived automatically on Vercel |
 
-Everything except the Image type works with no environment variables at all.
+Then create the schema once:
+
+```bash
+npm install
+node scripts/db-init.js                       # schema only
+node scripts/db-init.js demo=https://example.com   # schema + a first link
+```
+
+Everything except switchable links and the Image type works with no
+environment variables at all — the studio, all sixteen content types, the
+dynamic wizard and bulk CSV are pure static files.
+
+Generate the admin token with something you did not think of yourself:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+It is the only thing standing between a stranger and every code you have
+printed, so treat it accordingly. Leave it unset and `/switch` refuses to
+save at all, which is the correct failure.
 
 No deployment URL is hardcoded anywhere: canonicals are relative, the
 sitemap and `robots.txt` are generated at build time, and `og:image` URLs
@@ -193,11 +248,16 @@ cmd/verify/           CLI used by cross_verify.py
 internal/qrcode/      The encoder — matrix, masking, Reed–Solomon, tables
 internal/bulk/        CSV parsing
 internal/archivezip/  ZIP bundling
+api/_db.js            Turso handle, URL + key validation, client IP
+api/go.js             /go/<key> — looks the key up and 302s
+api/links.js          /api/links — read public, write behind the admin token
 scripts/build.js      Generates config.js, sitemap.xml, robots.txt from env
+scripts/db-init.js    Creates the schema; optionally seeds links
 scripts/make-og.py    Regenerates the social card
 web/                  The static site, deployed as-is
   ├── index.html        Studio
   ├── wizard.html       Dynamic Link wizard
+  ├── switch.html       Switchable link editor
   ├── bulk.html         Bulk CSV generation
   ├── r.html            Redirect target — no WASM, no web font, ~4 KB
   ├── css/styles.css    One stylesheet, token-driven, light + dark
