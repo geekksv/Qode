@@ -1,0 +1,21 @@
+{
+  "_readme": [
+    "Switchable QR codes. This file is the single source of truth.",
+    "",
+    "Each key below becomes a printed QR code at /go/<key>. To repoint a code,",
+    "change its URL here and push \u2014 the build regenerates the redirect page and",
+    "every copy already printed goes somewhere new within about ten seconds.",
+    "",
+    "NEVER rename or delete a key once its code has been printed or shared.",
+    "The key is the part that is physically on the paper; the URL is the part",
+    "you are free to change. Renaming a key kills every code carrying it.",
+    "",
+    "Keys must be lowercase letters, digits and hyphens \u2014 they become URL path",
+    "segments. Values must be full http or https addresses. The build fails on",
+    "anything else rather than shipping a broken redirect.",
+    "",
+    "Edit this file through /switch, which validates as you type, or by hand.",
+    "Keys beginning with an underscore are ignored."
+  ],
+  "demo": "https://amishasinha.vercel.app/"
+}

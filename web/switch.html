@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Switchable Links — Qode</title>
+<meta name="description" content="Repoint a printed QR code at a different URL without reprinting it. One file, no database, no subscription, and no limit on how often you change it." />
+<link rel="canonical" href="/switch" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("qode-theme");
+      var m = (t === "light" || t === "dark" || t === "system") ? t : "dark";
+      if (m !== "system") document.documentElement.setAttribute("data-theme", m);
+      document.documentElement.setAttribute("data-theme-mode", m);
+    } catch (e) {}
+  })();
+</script>
+
+<meta name="theme-color" content="#08090a" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/favicon.svg" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Qode" />
+<meta property="og:title" content="Switchable QR codes, without a database — Qode" />
+<meta property="og:description" content="Change where a printed code points, as often as you like. Competitors ration this; here it is one file you own." />
+<meta property="og:image" content="__SITE__/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Qode — free QR codes, made on your device." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Switchable QR codes, without a database — Qode" />
+<meta name="twitter:description" content="Change where a printed code points, as often as you like. Competitors ration this; here it is one file you own." />
+<meta name="twitter:image" content="__SITE__/og.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<a class="skip-link" href="#links-editor">Skip to the links</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-sun" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="11" cy="11" r="3.8" />
+      <path d="M11 2v2.2M11 17.8V20M20 11h-2.2M4.2 11H2M17.4 4.6l-1.6 1.6M6.2 15.8l-1.6 1.6M17.4 17.4l-1.6-1.6M6.2 6.2 4.6 4.6" />
+    </g>
+    <path id="i-moon" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M18 12.4A7.6 7.6 0 0 1 9.6 4a7.6 7.6 0 1 0 8.4 8.4Z" />
+    <g id="i-monitor" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4" width="17" height="11" rx="2" />
+      <path d="M8 18.5h6M11 15.5v3" />
+    </g>
+    <g id="i-trash" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 6h14M8.5 6V4.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V6M6 6l.8 11a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L16 6" />
+    </g>
+    <g id="i-plus" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+      <path d="M11 5v12M5 11h12" />
+    </g>
+    <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8.5" />
+      <path d="M11 10.5v5M11 7h.01" />
+    </g>
+  </defs>
+</svg>
+
+<header class="topnav">
+  <a class="brand" href="/">
+    <img class="brand-mark" src="/favicon.svg" alt="" width="22" height="22" />
+    <span class="brand-name">Qode</span>
+  </a>
+  <nav class="navlinks" aria-label="Primary">
+    <a href="/">Studio</a>
+    <a href="/wizard">Dynamic</a>
+    <a href="/switch" aria-current="page">Switchable</a>
+    <a href="/bulk">Bulk</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme">
+      <svg data-icon="light" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-sun" /></svg>
+      <svg data-icon="dark" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-moon" /></svg>
+      <svg data-icon="system" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-monitor" /></svg>
+    </button>
+  </div>
+</header>
+
+<main class="shell">
+
+  <section class="hero">
+    <span class="hero-tag"><span class="pulse"></span>Unlimited switches · One file · No database</span>
+    <h1>Change where a printed code goes.<br /><span class="muted">As often as you like.</span></h1>
+    <p>
+      Give a code a short name, and it becomes a permanent address at
+      <code>/go/&lt;name&gt;</code>. The name is the part that gets printed; the destination behind it
+      is yours to change whenever you want. Bitly rations this to five changes a month — here it is
+      one line in one file.
+    </p>
+  </section>
+
+  <!-- The distinction that trips everyone up, stated before anyone can get it
+       wrong rather than after they have printed something. -->
+  <aside class="note" style="margin-top:0;margin-bottom:var(--s-10);">
+    <div>
+      <h2>Which one do you want?</h2>
+      <p>
+        <strong>Switchable</strong> — the code opens a <em>different URL</em> whenever you decide.
+        Use it when the destination itself may move.
+      </p>
+      <p>
+        <strong><a href="/wizard">Dynamic Link</a></strong> — the code always opens the same page,
+        and you edit what is <em>on</em> that page. It scans slightly faster and keeps working even
+        if this site disappears. Prefer it when the destination is settled.
+      </p>
+    </div>
+  </aside>
+
+  <div class="steps" id="links-editor">
+
+    <section class="step" data-state="active" aria-labelledby="sw-1">
+      <span class="step-num" aria-hidden="true">01</span>
+      <div class="step-body">
+        <h2 id="sw-1">Your links</h2>
+        <p>
+          The name on the left is printed into the QR code and can never change. The address on the
+          right is what you come back and edit.
+        </p>
+
+        <div class="msg" id="links-status" role="status" aria-live="polite">
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+          <span></span>
+        </div>
+
+        <div class="link-rows" id="link-rows"></div>
+
+        <p class="field-hint" id="links-empty" hidden>
+          No links yet. Add one to get started.
+        </p>
+
+        <div class="step-actions">
+          <button class="btn btn-secondary btn-sm" type="button" id="link-add">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-plus" /></svg>Add a link
+          </button>
+        </div>
+
+        <div class="msg warn" id="draft-note" hidden>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+          <span>
+            You have unsaved changes. They are kept in this browser only — nothing is live until you
+            copy the file below and push it.
+            <button class="btn btn-ghost btn-sm" type="button" id="draft-discard">Discard changes</button>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" data-state="active" aria-labelledby="sw-2">
+      <span class="step-num" aria-hidden="true">02</span>
+      <div class="step-body">
+        <h2 id="sw-2">Save it</h2>
+        <p>
+          There is no save button here, because there is no server to save to. That is the trade
+          that makes this free and unmetered: <strong>git is the save button.</strong>
+        </p>
+
+        <pre class="json-out mono" id="json-out">{}</pre>
+
+        <div class="step-actions">
+          <button class="btn btn-primary btn-sm" type="button" id="json-copy" disabled>Copy JSON</button>
+          <button class="btn btn-secondary btn-sm" type="button" id="json-download" disabled>Download</button>
+        </div>
+
+        <ol class="instructions" style="margin-top:var(--s-5);">
+          <li><span>Copy the JSON above.</span></li>
+          <li><span>Paste it into <code>links.json</code> at the root of this project, replacing what is there.</span></li>
+          <li><span>Commit and push. Vercel rebuilds in about ten seconds.</span></li>
+          <li><span>Every printed code now goes to its new destination. Nothing is reprinted.</span></li>
+        </ol>
+
+        <p class="field-hint">
+          Editing <code>links.json</code> through github.com works from a phone, so you can repoint a
+          code from anywhere.
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <aside class="note">
+    <div>
+      <h2>Worth knowing</h2>
+      <p>
+        <strong>Never rename or delete a live name.</strong> The name is the part physically on the
+        paper. Change it and every code carrying it stops working, and no amount of editing brings
+        those back — only reprinting does.
+      </p>
+      <p>
+        <strong>These codes depend on this site.</strong> They point at
+        <code>/go/&lt;name&gt;</code> here, so if this domain goes away they stop resolving. The other
+        sixteen content types carry their destination inside them and have no such dependency.
+      </p>
+      <p>
+        <strong>Only someone who can push to this project can change a destination.</strong> There is
+        no login here because there is nothing to log in to — which is also why there is nothing to
+        rate-limit, nothing to leak, and no account that can lapse.
+      </p>
+    </div>
+  </aside>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>Qode — free, forever. One file, no database, and no account that can expire and take your printed codes with it.</p>
+    <div class="footer-meta">
+      <span><span class="tick" aria-hidden="true">✓</span> Unlimited changes</span>
+      <span><span class="tick" aria-hidden="true">✓</span> One request per scan</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/switch.js"></script>
+</body>
+</html>
