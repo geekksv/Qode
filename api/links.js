@@ -1,20 +1,25 @@
-// The switchable-link API. Open to anyone, which is what shapes every
-// decision in this file.
+// The switchable-link API. Private: every route requires the admin token.
 //
-//   GET    /api/links?key=x   public: where that code currently goes
-//   GET    /api/links         admin only: the whole list
-//   POST   /api/links         create one link; rate limited per IP
-//   PATCH  /api/links         change one link's destination; needs its key
-//   DELETE /api/links         remove one link; needs its key
+//   GET    /api/links?key=x   where that code currently goes
+//   GET    /api/links         the whole list
+//   POST   /api/links         create one link
+//   PATCH  /api/links         change one link's destination
+//   DELETE /api/links         remove one link
 //
-// The previous version replaced the entire set in one call, which was safe
-// only while a single trusted person could write. Opening that up unchanged
-// would have let any visitor repoint or delete every code on the site, so
-// every operation here addresses exactly one link and has to prove it may.
+// This was briefly open to the public, with a per-link edit key proving
+// ownership. It is now closed again by choice: a free anonymous redirector is
+// a phishing-laundering vector, and the cost of getting that wrong is the
+// whole domain being blocklisted rather than just this feature breaking.
+// Closing it removes that surface completely.
 //
-// Proof is a per-link edit key, shown once at creation and stored only as a
-// hash. Deliberately NOT the printed QR code: anyone can photograph a poster,
-// so possession of the code must never be what grants control of it.
+// The per-link edit keys and the per-IP rate limits below are kept but no
+// longer load-bearing — the admin token is checked first and satisfies
+// everything. They are left in place so this can be reopened by deleting one
+// guard rather than rebuilding the ownership model.
+//
+// Note what is NOT the credential here, then or now: the printed QR code.
+// Anyone can photograph a poster, so possession of a code must never be what
+// grants control of it.
 const {
   db, keyProblem, urlProblem, normaliseUrl, pointsAtUs,
   newEditToken, hashToken, tokenMatches, isAdmin,
@@ -109,6 +114,20 @@ module.exports = async function handler(req, res) {
 
   await sweep(c).catch(() => {});
 
+  // ---- The gate ----------------------------------------------------------
+  //
+  // Before anything else, including reads. There is nothing here a visitor
+  // needs: /go/<key> already sends them where they are going, so exposing the
+  // destinations separately would only help someone mapping the site.
+  if (!process.env.QODE_ADMIN_TOKEN) {
+    return json(res, 503, { error: "Switchable links aren't configured on this site." });
+  }
+  if (!admin) {
+    // 404 rather than 401: an endpoint that answers "unauthorised" confirms
+    // it exists and is worth attacking. This one simply is not there.
+    return json(res, 404, { error: "Not found." });
+  }
+
   // ---- Read --------------------------------------------------------------
 
   if (req.method === "GET") {
@@ -123,11 +142,6 @@ module.exports = async function handler(req, res) {
       return json(res, 200, { link: publicView(row) });
     }
 
-    // The full list is not public. Nothing in it is secret individually, but
-    // handing over every key at once is an invitation to enumerate and probe.
-    if (!admin) {
-      return json(res, 403, { error: "Ask for one code at a time, by name." });
-    }
     const all = await c.execute(
       "SELECT key, url, created_at, updated_at, hits, edit_hash FROM links ORDER BY created_at DESC"
     );

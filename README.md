@@ -48,7 +48,7 @@ WebAssembly and ships as a single file.
 | **16 content types** | Link · Text · E-mail · Call · SMS · WhatsApp · Wi-Fi · V-card · Event · Location · App · Social · Image · Video · UPI Pay · Crypto |
 | **Styling** | Three module shapes, three eye shapes, gradients, colour presets, 16 built-in logos, four logo animations |
 | **Export** | True vector SVG, or PNG at 1200 px. No watermark, no limit |
-| **Switchable links** | Repoint a printed code at a different URL, instantly, as often as you like |
+| **Switchable links** | Repoint a printed code at a different URL, instantly. Owner-only |
 | **Dynamic links** | Point a code at a page you control and edit the page, not the code |
 | **Bulk** | CSV in, ZIP out, no row limit, parsed in the tab |
 | **Accessibility** | WCAG AA contrast, full keyboard navigation, reduced-motion support |
@@ -92,52 +92,32 @@ The lookup is a serverless function against [Turso](https://turso.tech)
 `301`, because a permanent redirect gets cached by browsers and proxies —
 which would defeat the entire point of being switchable.
 
-**Anyone can make one**, three per IP per rolling 24 hours. Changing where
-your existing codes point is not rationed — creating is the abuse vector,
-and rationing changes would punish the exact behaviour the feature exists
-for.
+**Private.** `/switch` sits behind `QODE_ADMIN_TOKEN` and is not linked from
+anywhere — no nav entry, no sitemap, `noindex`. Every API route, reads
+included, answers `404` without the token rather than `401`: an endpoint
+that says “unauthorised” confirms it exists and is worth attacking.
 
-### What proves a code is yours
+It was briefly open to the public, with a per-link edit key proving
+ownership. That worked — holding the printed code let you see where it went
+but never change it — and it was still closed again by choice. A free
+anonymous redirector is a phishing-laundering vector, and the cost of
+getting that wrong is not this page breaking, it is the whole domain
+landing on a Safe Browsing blocklist and taking the Studio with it.
+Closing it removes that surface completely rather than managing it.
 
-Not possession of the printed code. Anyone can photograph a poster on a
-wall, and if that were enough, every code here could be hijacked by a
-passer-by. So each code carries an **edit key**, issued once at creation and
-stored only as a SHA-256 hash — it cannot be recovered, by anyone. Uploading
-a code shows you where it goes, because a scan reveals that anyway.
-Changing it needs the key.
+What never changed, in either version: **the printed QR code is not a
+credential.** Anyone can photograph a poster, so possession of a code has
+never granted control of it. Uploading one only ever reads it.
 
-### The rest of it
+The machinery from the public version — per-link edit keys, 3-per-IP-per-day
+creation limits, destination reputation checks — is all still in place and
+still runs. It is simply no longer load-bearing, since the admin token is
+checked first and satisfies everything. Reopening this means deleting one
+guard in `api/links.js`, not rebuilding the ownership model.
 
-Being open to the public decides almost every other detail:
-
-| | |
-|---|---|
-| **Names** | 3–40 chars, `[a-z0-9-]`, and a reserved list blocks `admin`, `login`, `verify`, `billing` and 40 others — nobody should reach `/go/verify` because a stranger claimed the word |
-| **Destinations** | Public `http(s)` only. No bare IPs, loopback, `.local`, private ranges, credentials in the URL, or anything pointing back at `/go` and `/r` |
-| **Reputation** | Other shorteners are refused — chaining hides where people end up. So are punycode lookalikes (`xn--pypal-4ve.com` renders as `pаypal.com`) and tunnelling hosts. Checked on **every change**, not just creation |
-| **Guessing a key** | Ten attempts per fifteen minutes, then a lockout |
-| **Enumeration** | Reads take one name. Only the admin token lists everything |
-| **Counters** | Live in the database, not memory, so they survive the cold starts serverless functions are made of — and count against the platform-set client IP, which a caller cannot forge |
-
-Blocking private ranges is the one that matters most: without it, a link
-here could aim somebody's browser at a device on their own network, and the
-request would arrive carrying that browser's local trust.
-
-`QODE_ADMIN_TOKEN` is the moderation override — list everything, delete
-anything, no quota. Set `SAFE_BROWSING_KEY` and every destination is checked
-against Google's malware and phishing lists too; without it that layer is
-skipped and the rest still applies. It fails **open** on a Google outage,
-because turning their downtime into ours would be the worse failure.
-
-### The risk worth naming
-
-A free, anonymous redirector is a phishing laundering vector, and the cost
-of getting it wrong is not this page breaking — it is the whole domain
-landing on a Safe Browsing or SmartScreen blocklist, taking the Studio and
-everything else with it. The measures above raise the cost of abuse
-substantially. They do not eliminate it: three codes a day is still three a
-day, from every IP, forever. Before pointing this at a real audience, set
-`SAFE_BROWSING_KEY` and keep an eye on what gets created.
+Scanning is of course untouched: `/go/<key>` is public, answers `302` (never
+`301` — a permanent redirect gets cached and would defeat the point), and a
+miss returns a real `404` rather than an open redirect.
 
 Competitors meter this. Bitly allows five destination changes a month.
 
@@ -234,8 +214,8 @@ Set these under **Project Settings → Environment Variables**:
 |---|---|---|
 | `TURSO_DATABASE_URL` | Switchable links | `turso db show --url <name>` |
 | `TURSO_AUTH_TOKEN` | Switchable links | `turso db tokens create <name>` |
-| `QODE_ADMIN_TOKEN` | Switchable links | Moderation override: lists and deletes any code |
-| `SAFE_BROWSING_KEY` | Recommended | [Google Safe Browsing](https://developers.google.com/safe-browsing/v4) lookup key |
+| `QODE_ADMIN_TOKEN` | Switchable links | The password for `/switch`. Without it, nothing there is reachable |
+| `SAFE_BROWSING_KEY` | Optional | [Google Safe Browsing](https://developers.google.com/safe-browsing/v4) lookup key. Only matters if `/switch` is ever reopened |
 | `IMGBB_KEY` | Image type only | [api.imgbb.com](https://api.imgbb.com) key |
 | `IMGBB_EXPIRY_SECONDS` | No | Auto-delete uploads after N seconds |
 | `SITE_URL` | No | Overrides the canonical URL; derived automatically on Vercel |
@@ -258,9 +238,9 @@ Generate the admin token with something you did not think of yourself:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-It is the moderation override for every code on the site, so treat it
-accordingly. Leave it unset and nothing breaks for visitors — only the
-admin powers are unavailable.
+It is the only thing standing between a stranger and every code you have
+printed, so treat it accordingly. Leave it unset and `/switch` returns 503
+rather than falling open — which is the correct failure.
 
 No deployment URL is hardcoded anywhere: canonicals are relative, the
 sitemap and `robots.txt` are generated at build time, and `og:image` URLs

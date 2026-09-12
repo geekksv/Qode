@@ -6,6 +6,7 @@
 <title>Switchable QR Codes — Qode</title>
 <meta name="description" content="Make a QR code whose destination you can change later, free. Print it once, then point it wherever you like — upload the code and re-aim it in seconds." />
 <link rel="canonical" href="/switch" />
+<meta name="robots" content="noindex, nofollow" />
 
 <script>
   (function () {
@@ -22,18 +23,6 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/favicon.svg" />
 
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="Qode" />
-<meta property="og:title" content="Switchable QR codes, free — Qode" />
-<meta property="og:description" content="Print a code once and change where it goes, as often as you like. No account, no subscription." />
-<meta property="og:image" content="__SITE__/og.png" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Qode — free QR codes, made on your device." />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Switchable QR codes, free — Qode" />
-<meta name="twitter:description" content="Print a code once and change where it goes, as often as you like. No account, no subscription." />
-<meta name="twitter:image" content="__SITE__/og.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -61,6 +50,10 @@
     <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="11" cy="11" r="8.5" />
       <path d="M11 10.5v5M11 7h.01" />
+    </g>
+    <g id="i-lock" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4.5" y="9.5" width="13" height="9" rx="2" />
+      <path d="M7.5 9.5V7a3.5 3.5 0 0 1 7 0v2.5" />
     </g>
     <g id="i-key" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="7.5" cy="11" r="3.5" />
@@ -91,7 +84,6 @@
   <nav class="navlinks" aria-label="Primary">
     <a href="/">Studio</a>
     <a href="/wizard">Dynamic</a>
-    <a href="/switch" aria-current="page">Switchable</a>
     <a href="/bulk">Bulk</a>
   </nav>
   <div class="nav-actions">
@@ -103,15 +95,35 @@
   </div>
 </header>
 
-<main class="shell shell-narrow" id="workspace">
+<main class="shell shell-narrow">
+
+  <!-- Everything here is behind the admin token. This was briefly open to the
+       public; it is closed again by choice, because a free anonymous
+       redirector is a phishing-laundering vector and the cost of that landing
+       wrong is the whole domain being blocklisted. -->
+  <section class="panel panel-gate" id="gate" hidden aria-labelledby="gate-title">
+    <svg class="gate-icon" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-lock" /></svg>
+    <h1 id="gate-title">Sign in</h1>
+    <p class="panel-sub">Switchable codes are managed from here.</p>
+    <form id="gate-form" autocomplete="off">
+      <input type="password" id="gate-token" placeholder="Admin password"
+             aria-label="Admin password" autocomplete="current-password" spellcheck="false" />
+      <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Unlock</button>
+    </form>
+    <div class="msg bad" id="gate-error" role="status" hidden>
+      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+      <span></span>
+    </div>
+  </section>
+
+  <div id="workspace" hidden>
 
   <div class="panel-head">
     <div>
       <h1>Switchable codes</h1>
-      <p class="panel-sub">
-        Print a code once and change where it goes afterwards — as often as you like, free.
-      </p>
+      <p class="panel-sub" id="live-count">&nbsp;</p>
     </div>
+    <button class="btn btn-ghost btn-sm" type="button" id="sign-out">Sign out</button>
   </div>
 
   <div class="tabbar" role="tablist" aria-label="What do you want to do?">
@@ -153,10 +165,7 @@
         <span></span>
       </div>
 
-      <div class="create-row">
-        <button class="btn btn-primary" type="button" id="create-btn" disabled>Generate code</button>
-        <span class="quota" id="quota"></span>
-      </div>
+      <button class="btn btn-primary" type="button" id="create-btn" disabled>Generate code</button>
     </div>
 
     <!-- Result: the code, and the one-time edit key. -->
@@ -178,27 +187,6 @@
       </div>
     </div>
 
-    <!-- The edit key. The single most important thing on the page: it is
-         shown once and cannot be recovered. -->
-    <div class="keybox" id="keybox" hidden>
-      <div class="keybox-head">
-        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-key" /></svg>
-        <h2>Save your edit key</h2>
-      </div>
-      <p class="keybox-why">
-        This is the only thing that proves the code is yours. You need it to change where the code
-        goes later. <strong>It is shown once and cannot be recovered</strong> — not by us either, because
-        only a hash of it is stored. Anyone who has it can re-aim your code, so keep it somewhere safe.
-      </p>
-      <div class="keybox-row">
-        <code class="keybox-token mono" id="edit-token"></code>
-        <button class="btn btn-primary btn-sm" type="button" id="copy-token">Copy</button>
-      </div>
-      <label class="keybox-ack">
-        <input type="checkbox" id="ack-key" />
-        <span>I've saved it</span>
-      </label>
-    </div>
   </section>
 
   <!-- ====================== Change ====================== -->
@@ -251,16 +239,6 @@
       </div>
 
       <div class="field">
-        <label class="field-label" for="found-token">Edit key</label>
-        <input type="password" id="found-token" placeholder="The key you saved when you made it"
-               spellcheck="false" autocomplete="off" />
-        <p class="field-hint" id="token-hint">
-          Photographing a code doesn't make it yours, so the key is what proves it. Lost it and the
-          destination is fixed for good — the code keeps working, it just can't be re-aimed.
-        </p>
-      </div>
-
-      <div class="field">
         <label class="field-label" for="found-url">Change it to</label>
         <input type="url" id="found-url" placeholder="https://example.com" spellcheck="false" />
         <p class="field-hint">Takes effect on the next scan. The printed code itself is never touched.</p>
@@ -308,26 +286,26 @@
 
   <div class="facts">
     <div>
-      <h3>Three a day</h3>
-      <p>
-        Each connection can make three codes a day. Changing where your existing codes point is not
-        rationed — only making new ones.
-      </p>
-    </div>
-    <div>
       <h3>The name is permanent</h3>
       <p>
         It is the part physically on the paper. The destination behind it is yours to change forever.
       </p>
     </div>
     <div>
+      <h3>Changes are instant</h3>
+      <p>
+        Saving takes effect on the next scan. There is no rebuild and no redeploy.
+      </p>
+    </div>
+    <div>
       <h3>These need this site</h3>
       <p>
-        A switchable code points here, and this site forwards it on. That indirection is what lets you
-        move it — and it means these codes stop working if this site does. Qode's other sixteen
+        A switchable code points here, and this site forwards it on. That indirection is what lets
+        you move it — and it means these codes stop working if this site does. Qode's other sixteen
         content types carry their destination inside them and depend on nothing.
       </p>
     </div>
+  </div>
   </div>
 </main>
 
