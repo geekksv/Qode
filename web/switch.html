@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Switchable Links — Qode</title>
-<meta name="description" content="Repoint a printed QR code at a different URL without reprinting it. Change the destination, press save, done." />
+<meta name="description" content="Create a QR code whose destination you can change later, or upload a code you already printed and point it somewhere new." />
 <link rel="canonical" href="/switch" />
 <meta name="robots" content="noindex, nofollow" />
 
@@ -30,7 +30,7 @@
 </head>
 <body>
 
-<a class="skip-link" href="#links-editor">Skip to the links</a>
+<a class="skip-link" href="#workspace">Skip to the editor</a>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
@@ -46,9 +46,6 @@
     <g id="i-trash" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M4 6h14M8.5 6V4.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V6M6 6l.8 11a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L16 6" />
     </g>
-    <g id="i-plus" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
-      <path d="M11 5v12M5 11h12" />
-    </g>
     <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="11" cy="11" r="8.5" />
       <path d="M11 10.5v5M11 7h.01" />
@@ -56,6 +53,20 @@
     <g id="i-lock" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <rect x="4.5" y="9.5" width="13" height="9" rx="2" />
       <path d="M7.5 9.5V7a3.5 3.5 0 0 1 7 0v2.5" />
+    </g>
+    <g id="i-scan" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 8V5a2 2 0 0 1 2-2h3M14 3h3a2 2 0 0 1 2 2v3M19 14v3a2 2 0 0 1-2 2h-3M8 19H5a2 2 0 0 1-2-2v-3" />
+      <path d="M6.5 11h9" />
+    </g>
+    <g id="i-download" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3v10M6.8 9.2 11 13.4l4.2-4.2M3.5 15v2.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15" />
+    </g>
+    <g id="i-alert" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3.5 20 18.5H2L11 3.5Z" />
+      <path d="M11 8.5v4M11 15.5h.01" />
+    </g>
+    <g id="i-check" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4.5 11.5 9 16l8.5-9" />
     </g>
   </defs>
 </svg>
@@ -82,12 +93,12 @@
 
 <main class="shell shell-narrow">
 
-  <!-- Sign in. Shown until a token is accepted; the editor stays hidden
-       behind it, because without a password anyone could repoint every code
-       this site has ever printed. -->
+  <!-- Sign in. Shown until a token is accepted; everything else stays behind
+       it, because without a password anyone could repoint every code this
+       site has ever printed. -->
   <section class="panel panel-gate" id="gate" hidden aria-labelledby="gate-title">
     <svg class="gate-icon" viewBox="0 0 22 22" aria-hidden="true"><use href="#i-lock" /></svg>
-    <h1 id="gate-title">Sign in to edit links</h1>
+    <h1 id="gate-title">Sign in</h1>
     <p class="panel-sub">These codes are already printed. Only you should be able to move them.</p>
     <form id="gate-form" autocomplete="off">
       <input type="password" id="gate-token" placeholder="Admin password"
@@ -95,46 +106,170 @@
       <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Unlock</button>
     </form>
     <div class="msg bad" id="gate-error" role="status" hidden>
-      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
+      <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
       <span></span>
     </div>
   </section>
 
-  <!-- The editor. Deliberately bare: a title, the rows, one save button. -->
-  <section id="links-editor" hidden>
+  <div id="workspace" hidden>
 
     <div class="panel-head">
       <div>
-        <h1>Links</h1>
-        <p class="panel-sub" id="links-sub">Loading…</p>
+        <h1>Switchable links</h1>
+        <p class="panel-sub" id="live-count">&nbsp;</p>
       </div>
       <button class="btn btn-ghost btn-sm" type="button" id="sign-out">Sign out</button>
     </div>
+
+    <div class="tabbar" role="tablist" aria-label="What do you want to do?">
+      <button class="tabbar-btn" type="button" role="tab" id="tab-create"
+              aria-controls="panel-create" aria-selected="true" tabindex="0">
+        Generate a code
+      </button>
+      <button class="tabbar-btn" type="button" role="tab" id="tab-change"
+              aria-controls="panel-change" aria-selected="false" tabindex="-1">
+        Change a destination
+      </button>
+    </div>
+
+    <!-- ====================== Generate ====================== -->
+    <section id="panel-create" role="tabpanel" aria-labelledby="tab-create" tabindex="0">
+
+      <div class="form-stack">
+        <div class="field">
+          <label class="field-label" for="new-key">Name</label>
+          <div class="prefixed">
+            <span class="prefixed-tag mono" aria-hidden="true">/go/</span>
+            <input type="text" id="new-key" placeholder="poster" spellcheck="false"
+                   autocapitalize="off" autocomplete="off" />
+          </div>
+          <p class="field-hint">
+            This is the part printed into the code, so it can never change afterwards.
+            Lowercase letters, digits and hyphens.
+          </p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="new-url">Destination</label>
+          <input type="url" id="new-url" placeholder="https://example.com" spellcheck="false" />
+          <p class="field-hint">Where it goes today. This is the part you come back and change.</p>
+        </div>
+
+        <div class="msg bad" id="create-error" role="status" hidden>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+          <span></span>
+        </div>
+
+        <button class="btn btn-primary" type="button" id="create-btn" disabled>Generate code</button>
+      </div>
+
+      <!-- Result: the code itself, ready to download. -->
+      <div class="result" id="create-result" hidden>
+        <div class="result-code">
+          <div id="create-stage" aria-live="polite"></div>
+        </div>
+        <div class="result-body">
+          <span class="pill ok"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check" /></svg>Live now</span>
+          <p class="result-target mono" id="create-target"></p>
+          <p class="result-dest" id="create-dest"></p>
+          <div class="result-actions">
+            <button class="btn btn-primary btn-sm" type="button" id="dl-png">
+              <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-download" /></svg>PNG
+            </button>
+            <button class="btn btn-secondary btn-sm" type="button" id="dl-svg">SVG</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="open-studio">Style it in the Studio</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== Change ====================== -->
+    <section id="panel-change" role="tabpanel" aria-labelledby="tab-change" tabindex="0" hidden>
+
+      <div class="dropzone" id="dropzone">
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-scan" /></svg>
+        <h2>Drop the QR code here</h2>
+        <p>
+          A photo of the printed code, or the image you exported. It is read in this tab —
+          the picture is never uploaded anywhere.
+        </p>
+        <button class="btn btn-secondary" type="button" id="browse-btn">Choose an image</button>
+        <input type="file" id="qr-file" accept="image/*" hidden />
+      </div>
+
+      <div class="msg bad" id="scan-error" role="status" hidden>
+        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+        <span></span>
+      </div>
+
+      <!-- One of ours: editable. -->
+      <div class="found" id="found" hidden>
+        <div class="found-head">
+          <span class="pill ok">Switchable</span>
+          <span class="found-name mono" id="found-name"></span>
+          <button class="btn btn-ghost btn-sm" type="button" id="scan-again">Scan another</button>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Currently goes to</span>
+          <p class="found-current mono" id="found-current"></p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="found-url">Change it to</label>
+          <input type="url" id="found-url" placeholder="https://example.com" spellcheck="false" />
+          <p class="field-hint">
+            Saving takes effect on the next scan. The printed code itself is never touched.
+          </p>
+        </div>
+
+        <div class="msg bad" id="found-error" role="status" hidden>
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert" /></svg>
+          <span></span>
+        </div>
+
+        <button class="btn btn-primary" type="button" id="found-save" disabled>Save new destination</button>
+      </div>
+
+      <!-- A real code, but not one of ours. Explained rather than refused. -->
+      <div class="found found-foreign" id="foreign" hidden>
+        <div class="found-head">
+          <span class="pill" id="foreign-pill">Not switchable</span>
+          <button class="btn btn-ghost btn-sm" type="button" id="foreign-again">Scan another</button>
+        </div>
+        <p class="found-current mono" id="foreign-content"></p>
+        <p class="field-hint" id="foreign-why"></p>
+        <div class="result-actions" id="foreign-actions" hidden>
+          <button class="btn btn-secondary btn-sm" type="button" id="foreign-create">Create this name</button>
+        </div>
+      </div>
+
+      <!-- The list, for when the printed code is not to hand. -->
+      <div class="known" id="known">
+        <h2 class="known-title">Or pick one of yours</h2>
+        <div class="link-rows" id="link-rows"></div>
+        <p class="field-hint" id="known-empty" hidden>
+          Nothing yet. Generate your first code in the other tab.
+        </p>
+      </div>
+    </section>
 
     <div class="msg" id="status" role="status" aria-live="polite" hidden>
       <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info" /></svg>
       <span></span>
     </div>
 
-    <div class="link-rows" id="link-rows"></div>
-
-    <div class="editor-actions">
-      <button class="btn btn-secondary btn-sm" type="button" id="link-add">
-        <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-plus" /></svg>Add
-      </button>
-      <div class="editor-actions-end">
-        <button class="btn btn-ghost btn-sm" type="button" id="revert" hidden>Revert</button>
-        <button class="btn btn-primary" type="button" id="save" disabled>Save</button>
-      </div>
-    </div>
-
     <p class="editor-foot">
-      Saving takes effect immediately — every printed code goes somewhere new on the next scan.
-      The name on the left is what is physically on the paper, so never change it once a code is out.
+      A switchable code points at this site, which forwards it on — that indirection is exactly
+      what lets you move it later, and it means these codes stop working if this site does. The
+      other sixteen content types carry their destination inside them and depend on nothing.
     </p>
-  </section>
+  </div>
 </main>
 
+<script src="/js/wasm_exec.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/qrRenderer.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/switch.js"></script>
