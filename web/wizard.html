@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Dynamic Link Wizard — Qode</title>
-<meta name="description" content="Make a printed QR code editable forever, with no database and no subscription. Point the code at a free page you already control, and change that page whenever you like." />
+<meta name="description" content="Point a QR code at a free page you already control, then edit that page whenever you like. No database, no account, no subscription — and the code never has to be reprinted." />
 <link rel="canonical" href="/wizard" />
 
 <script>
@@ -25,14 +25,14 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Qode" />
 <meta property="og:title" content="Dynamic QR codes without a database — Qode" />
-<meta property="og:description" content="Every other generator charges a subscription for editable QR codes because they need a server to remember the destination. Qode doesn't need one." />
+<meta property="og:description" content="Point the code at a page you control and edit the page, not the code. No server, no account, and nothing that can expire." />
 <meta property="og:image" content="__SITE__/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="Qode — free QR codes, made on your device." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Dynamic QR codes without a database — Qode" />
-<meta name="twitter:description" content="Every other generator charges a subscription for editable QR codes because they need a server to remember the destination. Qode doesn't need one." />
+<meta name="twitter:description" content="Point the code at a page you control and edit the page, not the code. No server, no account, and nothing that can expire." />
 <meta name="twitter:image" content="__SITE__/og.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -106,7 +106,8 @@
   </a>
   <nav class="navlinks" aria-label="Primary">
     <a href="/">Studio</a>
-    <a href="/wizard" aria-current="page">Dynamic Link</a>
+    <a href="/wizard" aria-current="page">Dynamic</a>
+    <a href="/switch">Switchable</a>
     <a href="/bulk">Bulk</a>
   </nav>
   <div class="nav-actions">
@@ -122,12 +123,11 @@
 
   <section class="hero">
     <span class="hero-tag"><span class="pulse"></span>No database · No account · Unlimited</span>
-    <h1>Make a printed QR code editable.<br /><span class="muted">Without a database.</span></h1>
+    <h1>Keep a printed code useful.<br /><span class="muted">Edit the page, not the code.</span></h1>
     <p>
-      Every other generator locks this behind a subscription, because changing where a printed code
-      points requires a server that remembers the destination. Qode skips the server entirely: point
-      your code at a free page you already control, and edit <em>that page</em> whenever you like. The
-      printed code never has to change.
+      Point your code at a free page you already control — a Notion doc, a Linktree, a Google Doc —
+      and edit <em>that page</em> whenever you like. The code itself always opens the same address, so
+      what people see can change forever without anything being reprinted.
     </p>
   </section>
 
@@ -182,15 +182,20 @@
 
   <aside class="note">
     <div>
-      <h2>How this works without a server</h2>
+      <h2>What this does, and what it doesn't</h2>
       <p>
-        Your code encodes a Qode <code>/r</code> address with the destination packed into the URL's
-        fragment — the part after the <code>#</code>. Browsers never transmit a fragment to any server,
-        so the redirect page decodes it locally, in the visitor's own browser.
+        The code encodes your chosen address directly — nothing is wrapped, shortened or routed
+        through Qode. A scan goes straight to your page, so these codes keep working even if this
+        site disappears, and they stay small enough to print at postage-stamp size.
       </p>
       <p>
-        The practical consequence: Qode has no record of where any code points, there is nothing to
-        expire, nothing to rate-limit, and no account that can lapse and break your printed material.
+        <strong>What changes is the page, never the code.</strong> If you need the same printed code
+        to open a genuinely <em>different address</em> later, that is a different tool — use
+        <a href="/switch">Switchable Links</a> instead.
+      </p>
+      <p>
+        Either way there is no account, nothing to expire, and no scan tracking. Qode has no record
+        of where any code points.
       </p>
     </div>
   </aside>

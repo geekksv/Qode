@@ -11,6 +11,10 @@ web/js/config.js
 web/sitemap.xml
 web/robots.txt
 
+# Switchable-link redirect pages, generated from links.json by the build.
+# links.json itself IS committed — it is the source of truth.
+web/go/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
@@ -24,3 +28,6 @@ node_modules/
 
 # Vercel
 .vercel
+
+# Local credential scratch file — never commit.
+apis.txt

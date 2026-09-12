@@ -1131,6 +1131,63 @@ input[type="range"] {
 .repeater-add { align-self: flex-start; margin-top: var(--s-1); }
 
 /* --------------------------------------------------------------------------
+   11c. Switchable links editor
+   -------------------------------------------------------------------------- */
+
+.link-rows { display: flex; flex-direction: column; gap: var(--s-3); margin: var(--s-4) 0; }
+
+.link-row {
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+  transition: border-color 0.12s ease;
+}
+.link-row.has-problem { border-color: var(--bad-line); }
+
+.link-row-main { display: flex; gap: var(--s-2); align-items: center; }
+/* The name is short and fixed-width; the URL takes whatever is left. */
+.link-row-main .lr-key { flex: 0 0 30%; min-width: 90px; font-family: var(--mono); font-size: 13px; }
+.link-row-main .lr-url { flex: 1; min-width: 0; }
+
+.link-row-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+  min-height: 22px;
+}
+.link-row-meta:empty { display: none; }
+
+.lr-path { font-size: 11px; color: var(--ink-3); }
+.lr-note { font-size: 11.5px; color: var(--warn); }
+.lr-problem { font-size: 11.5px; color: var(--bad); }
+.lr-qr { margin-left: auto; }
+
+.json-out {
+  margin: var(--s-4) 0 var(--s-3);
+  padding: var(--s-4);
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre;
+}
+
+@media (max-width: 560px) {
+  /* Two inputs side by side stop being usable well before this width. */
+  .link-row-main { flex-wrap: wrap; }
+  .link-row-main .lr-key { flex: 1 1 100%; }
+  .link-row-main .lr-url { flex: 1 1 auto; }
+  .lr-qr { margin-left: 0; }
+}
+
+/* --------------------------------------------------------------------------
    12. Studio — narrow screens
    -------------------------------------------------------------------------- */
 

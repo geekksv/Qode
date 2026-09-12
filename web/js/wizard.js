@@ -284,29 +284,24 @@
 
   // ---- Hand-off to the Studio -------------------------------------------
 
+  // The destination is handed to the Studio verbatim, NOT wrapped in a /r
+  // address.
+  //
+  // It used to be wrapped, and that was a mistake worth recording: the hop
+  // could not make the code editable — a QR is frozen at print time either
+  // way — so all it bought was a bigger code and a dependency. Measured on
+  // the same Notion URL: v6 / 41x41 wrapped versus v4 / 33x33 direct, 54%
+  // more modules, and every wrapped code would die if this domain ever went
+  // away. What makes the destination editable is that it points at a page
+  // the owner can edit, which is exactly what this wizard is for.
+  //
+  // Codes already printed with the old /r form keep working — redirect.js
+  // still resolves a bare base64 payload.
+  //
+  // This also no longer needs the 3MB WASM engine just to encode a string.
   useLinkBtn.addEventListener("click", function () {
     if (!validatedUrl) return;
-    var original = useLinkBtn.innerHTML;
-    useLinkBtn.disabled = true;
-    useLinkBtn.textContent = "Encoding…";
-
-    window.Qode.load().then(
-      function () {
-        var encoded = window.qrbitBase64UrlEncode(validatedUrl);
-        var rUrl = window.location.origin + "/r#" + encoded;
-        step3.dataset.state = "done";
-        window.location.href = "/?data=" + encodeURIComponent(rUrl);
-      },
-      function (err) {
-        useLinkBtn.innerHTML = original;
-        useLinkBtn.disabled = false;
-        UI.message(
-          validationMsg,
-          "bad",
-          "The QR engine couldn't start: " +
-            (err && err.message ? err.message : "check your connection and reload the page.")
-        );
-      }
-    );
+    step3.dataset.state = "done";
+    window.location.href = "/?data=" + encodeURIComponent(validatedUrl);
   });
 })();
