@@ -1,104 +1,141 @@
 // The one page that manages every switchable link.
 //
-// It is a full editor for links.json with no save button, because git is the
-// save button. You edit here, copy the JSON out, and push — the build turns
-// each entry into a standalone redirect page at /go/<key>, so a scan is one
-// request with the destination already baked in.
-//
-// The deliberate consequence of having no backend: nothing here writes
-// anywhere. Everything is local until you commit it.
+// Edits go straight to the database through /api/links and take effect on the
+// next scan — there is no build step and no file to push any more. The token
+// is held in sessionStorage rather than localStorage so closing the tab signs
+// you out; it is the password to something already printed on paper.
 (function () {
   "use strict";
 
   var UI = window.QodeUI;
+  var TOKEN_KEY = "qode-admin-token";
 
-  var DRAFT_KEY = "qode-links-draft";
-  // Keys become URL path segments, so they are restricted to what survives a
-  // URL, a filename and a printed label equally well.
+  // Keys become URL path segments and get printed, so they are held to what
+  // survives a URL, a filename and a label equally well.
   var KEY_RE = /^[a-z0-9][a-z0-9-]*$/;
 
+  var gate = document.getElementById("gate");
+  var gateForm = document.getElementById("gate-form");
+  var gateToken = document.getElementById("gate-token");
+  var gateSubmit = document.getElementById("gate-submit");
+  var gateError = document.getElementById("gate-error");
+
+  var editor = document.getElementById("links-editor");
   var rowsEl = document.getElementById("link-rows");
+  var subEl = document.getElementById("links-sub");
+  var statusEl = document.getElementById("status");
   var addBtn = document.getElementById("link-add");
-  var jsonEl = document.getElementById("json-out");
-  var copyBtn = document.getElementById("json-copy");
-  var downloadBtn = document.getElementById("json-download");
-  var statusEl = document.getElementById("links-status");
-  var draftNote = document.getElementById("draft-note");
-  var discardBtn = document.getElementById("draft-discard");
-  var emptyEl = document.getElementById("links-empty");
+  var saveBtn = document.getElementById("save");
+  var revertBtn = document.getElementById("revert");
+  var signOutBtn = document.getElementById("sign-out");
 
-  // What is actually deployed right now. Kept separate from the working copy
-  // so the page can tell you which keys are live — and therefore which ones
-  // are dangerous to rename.
-  var live = {};
-  var rows = []; // [{key, url}]
+  var token = "";
+  var live = {}; // what the database currently holds
+  var meta = {}; // key -> {hits, updatedAt}
+  var rows = []; // working copy: [{key, url}]
 
-  // ---- Load ---------------------------------------------------------------
-
-  function loadDraft() {
-    try {
-      var raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) return null;
-      var parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch (e) {
-      return null;
-    }
+  function getToken() {
+    try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
   }
 
-  function saveDraft() {
+  function setToken(v) {
     try {
-      if (matchesLive()) localStorage.removeItem(DRAFT_KEY);
-      else localStorage.setItem(DRAFT_KEY, JSON.stringify(rows));
-    } catch (e) {
-      /* storage disabled — the page still works, edits just are not kept */
-    }
+      if (v) sessionStorage.setItem(TOKEN_KEY, v);
+      else sessionStorage.removeItem(TOKEN_KEY);
+    } catch (e) {}
+    token = v;
   }
 
-  function matchesLive() {
-    var a = {};
-    rows.forEach(function (r) { if (r.key) a[r.key] = r.url; });
-    var ak = Object.keys(a).sort();
-    var lk = Object.keys(live).sort();
-    if (ak.length !== lk.length) return false;
-    for (var i = 0; i < ak.length; i++) {
-      if (ak[i] !== lk[i] || a[ak[i]] !== live[lk[i]]) return false;
+  // ---- API ----------------------------------------------------------------
+
+  function api(method, body) {
+    var opts = { method: method, headers: {}, cache: "no-store" };
+    if (token) opts.headers["Authorization"] = "Bearer " + token;
+    if (body) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
     }
-    return true;
+    return fetch("/api/links", opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          var err = new Error(data.error || "Request failed (" + r.status + ")");
+          err.status = r.status;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function absorb(list) {
+    live = {};
+    meta = {};
+    (list || []).forEach(function (l) {
+      live[l.key] = l.url;
+      meta[l.key] = { hits: l.hits, updatedAt: l.updatedAt };
+    });
   }
 
   function fromLive() {
-    return Object.keys(live).map(function (k) { return { key: k, url: live[k] }; });
+    return Object.keys(live).sort().map(function (k) {
+      return { key: k, url: live[k] };
+    });
   }
 
-  // links.json is same-origin, so no CORS and no configuration.
-  fetch("/links.json", { cache: "no-store" })
-    .then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    })
-    .then(function (data) {
-      Object.keys(data || {}).forEach(function (k) {
-        if (k.charAt(0) === "_") return; // _readme and friends
-        if (typeof data[k] === "string") live[k] = data[k];
+  // ---- Gate ---------------------------------------------------------------
+
+  function showGate(message) {
+    gate.hidden = false;
+    editor.hidden = true;
+    if (message) {
+      gateError.hidden = false;
+      gateError.querySelector("span").textContent = message;
+    } else {
+      gateError.hidden = true;
+    }
+    gateToken.focus();
+  }
+
+  function showEditor() {
+    gate.hidden = true;
+    editor.hidden = false;
+    rows = fromLive();
+    if (!rows.length) rows = [{ key: "", url: "" }];
+    render();
+  }
+
+  gateForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var candidate = gateToken.value.trim();
+    if (!candidate) return;
+
+    gateSubmit.disabled = true;
+    gateSubmit.textContent = "Checking…";
+    setToken(candidate);
+
+    // Saving the current state back is the cheapest way to prove the token
+    // without a dedicated auth route: it validates, changes nothing, and
+    // returns the live list.
+    api("POST", { links: live })
+      .then(function (data) {
+        absorb(data.links);
+        gateToken.value = "";
+        showEditor();
+      })
+      .catch(function (err) {
+        setToken("");
+        showGate(err.message);
+      })
+      .then(function () {
+        gateSubmit.disabled = false;
+        gateSubmit.textContent = "Unlock";
       });
+  });
 
-      var draft = loadDraft();
-      rows = draft && draft.length ? draft : fromLive();
-      if (!rows.length) rows = [{ key: "", url: "" }];
-
-      render();
-      UI.message(statusEl, "info",
-        Object.keys(live).length + " link(s) currently live on this site.");
-    })
-    .catch(function (err) {
-      rows = loadDraft() || [{ key: "", url: "" }];
-      render();
-      UI.message(statusEl, "warn",
-        "Couldn't read the live links.json (" + (err.message || "error") +
-        "). You can still build one here — the list above just isn't showing " +
-        "what is currently deployed.");
-    });
+  signOutBtn.addEventListener("click", function () {
+    setToken("");
+    showGate("");
+  });
 
   // ---- Validation ---------------------------------------------------------
 
@@ -108,13 +145,9 @@
     if (!key && !url) return null; // blank row, simply ignored
 
     if (!key) return "Needs a name.";
-    if (!KEY_RE.test(key)) {
-      return "Use lowercase letters, digits and hyphens only.";
-    }
+    if (!KEY_RE.test(key)) return "Lowercase letters, digits and hyphens only.";
     for (var i = 0; i < rows.length; i++) {
-      if (i !== index && (rows[i].key || "").trim() === key) {
-        return "Another row already uses this name.";
-      }
+      if (i !== index && (rows[i].key || "").trim() === key) return "Already used.";
     }
     if (!url) return "Needs a destination.";
     var u;
@@ -124,15 +157,34 @@
       return "Not a complete web address.";
     }
     if (u.protocol !== "http:" && u.protocol !== "https:") {
-      return "Must start with http:// or https://";
+      return "Must be http:// or https://";
     }
     return null;
   }
 
-  function usableRows() {
-    return rows.filter(function (r, i) {
-      return (r.key || "").trim() && (r.url || "").trim() && !rowProblem(r, i);
+  function buildObject() {
+    var out = {};
+    rows.forEach(function (r, i) {
+      var key = (r.key || "").trim();
+      var url = (r.url || "").trim();
+      if (key && url && !rowProblem(r, i)) out[key] = url;
     });
+    return out;
+  }
+
+  function anyProblem() {
+    return rows.some(function (r, i) { return !!rowProblem(r, i); });
+  }
+
+  function dirty() {
+    var next = buildObject();
+    var a = Object.keys(next).sort();
+    var b = Object.keys(live).sort();
+    if (a.length !== b.length) return true;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] !== b[i] || next[a[i]] !== live[b[i]]) return true;
+    }
+    return false;
   }
 
   // ---- Render -------------------------------------------------------------
@@ -145,12 +197,25 @@
       var key = (row.key || "").trim();
       var isLive = Object.prototype.hasOwnProperty.call(live, key);
       var changed = isLive && live[key] !== (row.url || "").trim();
+      var hits = isLive && meta[key] ? meta[key].hits : 0;
 
       var el = document.createElement("div");
       el.className = "link-row" + (problem ? " has-problem" : "");
 
+      var metaBits = "";
+      if (problem) {
+        metaBits = '<span class="lr-problem">' + UI.escapeHtml(problem) + "</span>";
+      } else {
+        if (changed) metaBits += '<span class="lr-note">unsaved</span>';
+        if (hits) {
+          metaBits += '<span class="lr-hits">' + hits + " scan" + (hits === 1 ? "" : "s") + "</span>";
+        }
+        if (key) metaBits += '<button class="lr-qr" type="button">QR</button>';
+      }
+
       el.innerHTML =
         '<div class="link-row-main">' +
+          '<span class="lr-prefix mono" aria-hidden="true">/go/</span>' +
           '<input class="lr-key" type="text" spellcheck="false" placeholder="poster" ' +
             'value="' + UI.escapeHtml(row.key || "") + '" aria-label="Code name" />' +
           '<input class="lr-url" type="url" spellcheck="false" placeholder="https://example.com" ' +
@@ -159,101 +224,66 @@
             '<svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-trash" /></svg>' +
           "</button>" +
         "</div>" +
-        '<div class="link-row-meta">' +
-          (isLive
-            ? '<span class="pill ok">Live</span><span class="lr-path mono">/go/' +
-              UI.escapeHtml(key) + "</span>"
-            : key && !problem
-              ? '<span class="pill">New</span><span class="lr-path mono">/go/' +
-                UI.escapeHtml(key) + "</span>"
-              : "") +
-          (changed ? '<span class="lr-note">changed — push to apply</span>' : "") +
-          (problem ? '<span class="lr-problem">' + UI.escapeHtml(problem) + "</span>" : "") +
-          (key && !problem
-            ? '<button class="btn btn-secondary btn-sm lr-qr" type="button">Make QR</button>'
-            : "") +
-        "</div>";
+        (metaBits ? '<div class="link-row-meta">' + metaBits + "</div>" : "");
 
       var keyInput = el.querySelector(".lr-key");
       var urlInput = el.querySelector(".lr-url");
 
       keyInput.addEventListener("input", function () {
         rows[index].key = keyInput.value;
-        onChange({ keepFocus: "key", index: index });
+        onChange("key", index);
       });
       urlInput.addEventListener("input", function () {
         rows[index].url = urlInput.value;
-        onChange({ keepFocus: "url", index: index });
+        onChange("url", index);
       });
 
       el.querySelector(".lr-del").addEventListener("click", function () {
-        // Deleting a live key breaks every code already carrying it, and that
-        // cannot be undone by reprinting — the paper is already out there.
+        // Deleting a live key breaks every code already carrying it, and no
+        // amount of editing brings those back — the paper is already out there.
         if (isLive) {
           var ok = window.confirm(
             'Remove "' + key + '"?\n\n' +
-            "This name is live. Any QR code already printed with it will stop " +
-            "working the moment you push this change, and nothing can bring it " +
-            "back except restoring the name exactly."
+            "This name is live. Any QR code already printed with it stops working " +
+            "the moment you save, and only restoring the name exactly brings it back."
           );
           if (!ok) return;
         }
         rows.splice(index, 1);
         if (!rows.length) rows = [{ key: "", url: "" }];
-        onChange({});
+        render();
       });
 
       var qrBtn = el.querySelector(".lr-qr");
       if (qrBtn) {
         qrBtn.addEventListener("click", function () {
-          // Hand off to the Studio, exactly like the Dynamic Link wizard does,
-          // so the code can be styled and exported like any other.
-          var target = window.location.origin + "/go/" + key;
-          window.location.href = "/?data=" + encodeURIComponent(target);
+          window.location.href =
+            "/?data=" + encodeURIComponent(window.location.origin + "/go/" + key);
         });
       }
 
       rowsEl.appendChild(el);
     });
 
-    emptyEl.hidden = rows.some(function (r) { return (r.key || "").trim(); });
-    renderJson();
+    var count = Object.keys(live).length;
+    subEl.textContent = count
+      ? count + (count === 1 ? " link live." : " links live.") + " Changes apply the moment you save."
+      : "No links yet. Add one, then save.";
 
-    var dirty = !matchesLive();
-    draftNote.hidden = !dirty;
+    var isDirty = dirty();
+    saveBtn.disabled = !isDirty || anyProblem();
+    revertBtn.hidden = !isDirty;
   }
 
-  function onChange(opts) {
-    saveDraft();
+  function onChange(field, index) {
     render();
     // Re-rendering blows away focus; put it back so typing is not interrupted.
-    if (opts && opts.keepFocus) {
-      var sel = opts.keepFocus === "key" ? ".lr-key" : ".lr-url";
-      var node = rowsEl.children[opts.index] &&
-                 rowsEl.children[opts.index].querySelector(sel);
-      if (node) {
-        node.focus();
-        var v = node.value;
-        try { node.setSelectionRange(v.length, v.length); } catch (e) {}
-      }
+    var node = rowsEl.children[index] &&
+      rowsEl.children[index].querySelector(field === "key" ? ".lr-key" : ".lr-url");
+    if (node) {
+      node.focus();
+      try { node.setSelectionRange(node.value.length, node.value.length); } catch (e) {}
     }
-  }
-
-  function buildObject() {
-    var out = {};
-    usableRows().forEach(function (r) {
-      out[r.key.trim()] = r.url.trim();
-    });
-    return out;
-  }
-
-  function renderJson() {
-    var obj = buildObject();
-    var text = JSON.stringify(obj, null, 2) + "\n";
-    jsonEl.textContent = text;
-    var none = !Object.keys(obj).length;
-    copyBtn.disabled = none;
-    downloadBtn.disabled = none;
   }
 
   // ---- Actions ------------------------------------------------------------
@@ -265,41 +295,71 @@
     if (last) last.querySelector(".lr-key").focus();
   });
 
-  copyBtn.addEventListener("click", function () {
-    var text = jsonEl.textContent;
-    var done = function () {
-      var original = copyBtn.textContent;
-      copyBtn.textContent = "Copied";
-      setTimeout(function () { copyBtn.textContent = original; }, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallbackCopy);
-    } else {
-      fallbackCopy();
-    }
-    function fallbackCopy() {
-      // execCommand is deprecated but is the only option on http:// origins
-      // and in older in-app browsers, where the clipboard API is unavailable.
-      var ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.cssText = "position:fixed;left:-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); done(); } catch (e) {
-        UI.message(statusEl, "warn", "Couldn't copy automatically — select the text above.");
-      }
-      ta.remove();
-    }
-  });
-
-  downloadBtn.addEventListener("click", function () {
-    UI.download(new Blob([jsonEl.textContent], { type: "application/json" }), "links.json");
-  });
-
-  discardBtn.addEventListener("click", function () {
+  revertBtn.addEventListener("click", function () {
     rows = fromLive();
     if (!rows.length) rows = [{ key: "", url: "" }];
-    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    UI.message(statusEl, "info", "Reverted to what is live.");
     render();
   });
+
+  saveBtn.addEventListener("click", function () {
+    var payload = buildObject();
+    var gone = Object.keys(live).filter(function (k) {
+      return !Object.prototype.hasOwnProperty.call(payload, k);
+    });
+    if (gone.length) {
+      var ok = window.confirm(
+        "Saving will remove " + gone.length + " live link(s): " + gone.join(", ") + ".\n\n" +
+        "Any QR code already printed with those names stops working immediately."
+      );
+      if (!ok) return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+
+    api("POST", { links: payload })
+      .then(function (data) {
+        absorb(data.links);
+        rows = fromLive();
+        if (!rows.length) rows = [{ key: "", url: "" }];
+        UI.message(statusEl, "ok", "Saved. Every printed code now points at its new destination.");
+        render();
+      })
+      .catch(function (err) {
+        if (err.status === 401) {
+          setToken("");
+          return showGate("That session expired. Sign in again.");
+        }
+        UI.message(statusEl, "bad", err.message);
+        render();
+      })
+      .then(function () {
+        saveBtn.textContent = "Save";
+      });
+  });
+
+  // Losing unsaved edits to a stray navigation would be a genuinely annoying
+  // way to break a printed code.
+  window.addEventListener("beforeunload", function (e) {
+    if (!editor.hidden && dirty()) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
+  // ---- Boot ---------------------------------------------------------------
+
+  // The list is public — these destinations are printed on posters, so there
+  // is nothing to hide. Only writing needs the password.
+  api("GET")
+    .then(function (data) {
+      absorb(data.links);
+      token = getToken();
+      if (token) showEditor();
+      else showGate("");
+    })
+    .catch(function (err) {
+      showGate("Couldn't reach the server (" + err.message + ").");
+    });
 })();

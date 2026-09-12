@@ -708,6 +708,7 @@ input[type="text"],
 input[type="url"],
 input[type="email"],
 input[type="tel"],
+input[type="password"],
 textarea,
 select {
   width: 100%;
@@ -1132,9 +1133,49 @@ input[type="range"] {
 
 /* --------------------------------------------------------------------------
    11c. Switchable links editor
+
+   Deliberately spare. This page is a tool the owner opens to change one URL
+   and leave, not something to be read, so it carries no hero, no explainer
+   and no decoration that would slow that down.
    -------------------------------------------------------------------------- */
 
-.link-rows { display: flex; flex-direction: column; gap: var(--s-3); margin: var(--s-4) 0; }
+.shell-narrow {
+  max-width: 660px;
+  margin: 0 auto;
+  padding-block: var(--s-10);
+}
+
+/* ---- Sign in ---- */
+
+.panel-gate {
+  padding: var(--s-7) var(--s-6);
+  max-width: 340px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+.panel-gate .gate-icon {
+  width: 26px;
+  height: 26px;
+  color: var(--ink-3);
+  margin-bottom: var(--s-3);
+}
+.panel-gate h1 { font-size: 17px; font-weight: 600; margin: 0 0 var(--s-2); letter-spacing: -0.01em; }
+.panel-gate form { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-5); }
+.panel-gate .msg { margin-top: var(--s-4); text-align: left; }
+
+/* ---- Editor ---- */
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-bottom: var(--s-5);
+}
+.panel-head h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.02em; }
+.panel-sub { margin: var(--s-1) 0 0; font-size: 13px; color: var(--ink-3); }
+
+.link-rows { display: flex; flex-direction: column; gap: var(--s-2); margin: var(--s-4) 0; }
 
 .link-row {
   padding: var(--s-3);
@@ -1146,45 +1187,64 @@ input[type="range"] {
 .link-row.has-problem { border-color: var(--bad-line); }
 
 .link-row-main { display: flex; gap: var(--s-2); align-items: center; }
-/* The name is short and fixed-width; the URL takes whatever is left. */
-.link-row-main .lr-key { flex: 0 0 30%; min-width: 90px; font-family: var(--mono); font-size: 13px; }
+/* The /go/ prefix is shown rather than explained — it is the part that gets
+   printed, and seeing it attached to the name makes that obvious. */
+.lr-prefix { flex: none; font-size: 12px; color: var(--ink-3); user-select: none; }
+.link-row-main .lr-key { flex: 0 0 26%; min-width: 84px; font-family: var(--mono); font-size: 13px; }
 .link-row-main .lr-url { flex: 1; min-width: 0; }
 
 .link-row-meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--s-2);
+  gap: var(--s-3);
   margin-top: var(--s-2);
-  min-height: 22px;
+  padding-left: 2px;
 }
 .link-row-meta:empty { display: none; }
 
-.lr-path { font-size: 11px; color: var(--ink-3); }
 .lr-note { font-size: 11.5px; color: var(--warn); }
 .lr-problem { font-size: 11.5px; color: var(--bad); }
-.lr-qr { margin-left: auto; }
+.lr-hits { font-size: 11.5px; color: var(--ink-3); }
 
-.json-out {
-  margin: var(--s-4) 0 var(--s-3);
-  padding: var(--s-4);
-  max-height: 260px;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface-inset);
+/* A text button, not a filled one — it is a shortcut, not the main action. */
+.lr-qr {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.lr-qr:hover { text-decoration: underline; }
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+}
+.editor-actions-end { margin-left: auto; display: flex; align-items: center; gap: var(--s-2); }
+
+.editor-foot {
+  margin-top: var(--s-6);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
   font-size: 12px;
   line-height: 1.6;
-  color: var(--ink);
-  white-space: pre;
+  color: var(--ink-3);
 }
 
 @media (max-width: 560px) {
   /* Two inputs side by side stop being usable well before this width. */
   .link-row-main { flex-wrap: wrap; }
-  .link-row-main .lr-key { flex: 1 1 100%; }
-  .link-row-main .lr-url { flex: 1 1 auto; }
+  .lr-prefix { order: -1; }
+  .link-row-main .lr-key { flex: 1 1 auto; }
+  .link-row-main .lr-url { flex: 1 1 100%; }
   .lr-qr { margin-left: 0; }
+  .panel-gate { margin-top: 6vh; }
 }
 
 /* --------------------------------------------------------------------------
